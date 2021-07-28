@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "omnomnomicon",
+    "omnomnomicon_derive",
+    "tests",
+]
