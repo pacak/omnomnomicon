@@ -67,6 +67,13 @@ impl Highlighter for H {
             None => Cow::from(hint),
         }
     }
+
+    fn highlight<'l>(&self, line: &'l str, _pos: usize) -> Cow<'l, str> {
+        match self.cache.peek().as_ref() {
+            Some(ParseOutcome::Failure(x)) => Cow::from(colorize_fail(x, line)),
+            _ => Cow::from(line),
+        }
+    }
 }
 
 impl Hinter for H {

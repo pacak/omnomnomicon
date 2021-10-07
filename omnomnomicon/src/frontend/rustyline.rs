@@ -1,4 +1,4 @@
-//! Rustyline backend
+//! Rustyline frontend
 //!
 //! This module contains a set of functions to connect parser with rustyline library.
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -23,6 +23,27 @@ fn colorize(comp: &Comp) -> String {
         Color::Green.paint(&comp.replacement[0..comp.remaining]),
         Color::Red.paint(&comp.replacement[comp.remaining..])
     )
+}
+
+/// Highlight the failing part of the input with red color
+///
+/// Rustyline allows to highlight the input, thins function will highlight
+/// a part the parser can't understand. See [`highlight`][rustyline::highlight::Highlighter::highlight]
+///
+/// ```ignore
+///    // this goes into `Highlighter` trait
+///    fn highlight<'l>(&self, line: &'l str, pos: usize) -> Cow<'l, str> {
+///        match self.cache.peek().as_ref() {
+///            Some(ParseOutcome::Failure(x)) => Cow::from(colorize_fail(x, line)),
+///            _ => Cow::from(line),
+///        }
+///    }
+/// ```
+pub fn colorize_fail(msg: &Failure, line: &str) -> String {
+    let split = line.len() - msg.offset;
+    let good = &line[..split];
+    let bad = &line[split..];
+    format!("{}{}", good, ansi_term::Color::Red.paint(bad))
 }
 
 impl Candidate for Comp {
