@@ -165,7 +165,7 @@ impl<'a> Output<'a> {
             //
             // Both of those cases are handled by the same call to parser
             match parser(self.input) {
-                Ok(r) => Ok(r),
+                Ok((output, r)) => Ok((output + self.state, r)),
 
                 // failing without info means we accept only previous parser
                 // or throw an error for current one if previous is done
@@ -734,4 +734,15 @@ impl Comp {
             remaining,
         }
     }
+}
+
+#[test]
+fn bind_space_preserves_potential_info() {
+    use omnomnomicon::prelude::*;
+    let p1 = option(literal("foo"));
+    let p2 = option(literal("bar"));
+
+    let (o, _r1) = p1("").unwrap();
+    let (o, _r2) = o.bind_space(false, p2).unwrap();
+    assert_eq!(o.state.items.len(), 2);
 }
