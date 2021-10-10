@@ -143,7 +143,7 @@ where
 ///
 /// If label needs to change depending on some state external to parser - see [`with_label`].
 /// ```rust
-/// use omnomnomicon::prelude::*;
+/// # use omnomnomicon::prelude::*;
 /// let p = label("price", number::<u32>);
 ///
 /// let r = parse_hints(&p, "")?.labels();
@@ -156,6 +156,75 @@ where
     F: Fn(&str) -> Result<R>,
 {
     map_info(parser, move |state| state.push_label(label))
+}
+
+/// Modify labels on nested parsers with a function
+///
+/// ```rust
+/// # use omnomnomicon::prelude::*;
+/// # use std::borrow::Cow;
+/// let p = label("banana", number::<u32>);
+/// let p2 = relabel(|l|*l = Cow::from(format!("{}{}", "super", l)), p);
+///
+/// let r = parse_hints(&p2, "")?.labels();
+/// // ["superbanana"]
+/// # assert_eq!(r, &["superbanana"]);
+/// # Ok::<(), String>(())
+/// ```
+pub fn relabel<L, P, R>(relabel: L, parser: P) -> impl Fn(&str) -> Result<R>
+where
+    P: Fn(&str) -> Result<R>,
+    L: Fn(&mut Cow<'static, str>),
+{
+    map_info(parser, move |state| {
+        if state.status.has_label() {
+            for i in state.items.iter_mut() {
+                if let Info::Label(l) = i {
+                    relabel(l)
+                }
+            }
+        }
+    })
+}
+
+/// Attach a static prefix to all the labels in the nested parsers
+///
+/// ```rust
+/// # use omnomnomicon::prelude::*;
+/// # use std::borrow::Cow;
+/// let p = label("banana", number::<u32>);
+/// let p2 = prefix_labels("super", p);
+///
+/// let r = parse_hints(&p2, "")?.labels();
+/// // ["superbanana"]
+/// # assert_eq!(r, &["superbanana"]);
+/// # Ok::<(), String>(())
+/// ```
+pub fn prefix_labels<P, R>(label: &'static str, parser: P) -> impl Fn(&str) -> Result<R>
+where
+    P: Fn(&str) -> Result<R>,
+{
+    relabel(move |l| *l = Cow::from(format!("{}{}", label, l)), parser)
+}
+
+/// Attach a static suffix to all the labels in the nested parsers
+///
+/// ```rust
+/// # use omnomnomicon::prelude::*;
+/// # use std::borrow::Cow;
+/// let p = label("super", number::<u32>);
+/// let p2 = suffix_labels("banana", p);
+///
+/// let r = parse_hints(&p2, "")?.labels();
+/// // ["superbanana"]
+/// # assert_eq!(r, &["superbanana"]);
+/// # Ok::<(), String>(())
+/// ```
+pub fn suffix_labels<P, R>(label: &'static str, parser: P) -> impl Fn(&str) -> Result<R>
+where
+    P: Fn(&str) -> Result<R>,
+{
+    relabel(move |l| *l = Cow::from(format!("{}{}", l, label)), parser)
 }
 
 /// Adds a dynamic hint label for parser F
