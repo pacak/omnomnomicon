@@ -16,3 +16,7 @@ give a helper to produce a single completion: "next-"
 # doc, switch to [Foo] to [`Foo`]
 
 # consistent naming for parser parameter - P instead of F
+
+# indication for "help available"
+
+# remove optional_help
