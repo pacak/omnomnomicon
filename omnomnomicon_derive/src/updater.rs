@@ -113,8 +113,8 @@ impl Parse for OStruct {
         let _attrs = input.call(Attribute::parse_outer)?;
         let _vis = input.parse::<Visibility>()?;
         input.parse::<Token![struct]>()?;
-        let content;
         let ident = input.parse::<Ident>()?;
+        let content;
         let updater = Ident::new(&format!("{}Updater", ident), ident.span());
         let brace = braced!(content in input);
         Ok(OStruct {
