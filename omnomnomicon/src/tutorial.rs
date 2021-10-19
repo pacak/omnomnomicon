@@ -19,21 +19,21 @@
 //! # use omnomnomicon::prelude::*;
 //! let p = literal("banana");
 //! let q = number::<u32>;
-//! let c = pair(p, q);
+//! let mut c = pair(p, q);
 //!
-//! let r = parse_result(&c, "banana13")?;
+//! let r = parse_result(&mut c, "banana13")?;
 //! // ("banana", 13)
 //! # assert_eq!(r, ("banana", 13));
 //!
-//! let r = parse_result(&c, "13banana");
+//! let r = parse_result(&mut c, "13banana");
 //! // wrong order, parsing fails
 //! # assert_eq!(r.is_err(), true);
 //!
-//! let r = parse_result(&c, "banana");
+//! let r = parse_result(&mut c, "banana");
 //! // p succeeds, q fails
 //! # assert_eq!(r.is_err(), true);
 //!
-//! let r = parse_result(&c, "potato");
+//! let r = parse_result(&mut c, "potato");
 //! // p fails, q is never called
 //! # assert_eq!(r.is_err(), true);
 //!
@@ -51,9 +51,9 @@
 //! # use omnomnomicon::prelude::*;
 //! let p = literal("banana");
 //! let q = number::<u32>;
-//! let c = words((p, q));
+//! let mut c = words((p, q));
 //!
-//! let r = parse_result(&c, "banana 13")?;
+//! let r = parse_result(&mut c, "banana 13")?;
 //! // ("banana", 13)
 //! # assert_eq!(r, ("banana", 13));
 //! # Ok::<(), String>(())
@@ -141,7 +141,7 @@ place ask 1 potato # sell a single potato";
 /// [`hide`] combinator removes completion from dir so user can enter this place command only if he knows of it
 ///
 /// It uses implicit input passing for no reason other than demonstration.
-pub fn short_place_cmd() -> impl Fn(&str) -> Result<Command> {
+pub fn short_place_cmd() -> impl FnMut(&str) -> Result<Command> {
     let cmd = words((hide(dir), option(item), price, option(qty)));
     let mk = |(dir, item, px, qty)| Command::Place(dir, item, px, qty);
 
@@ -177,7 +177,7 @@ pub fn perm_cmd(input: &str) -> Result<Command> {
 ///
 /// This command also uses implicit input passing which is required because of
 /// lack of currying in Rust
-pub fn dictionary_cmd(dict: &'static [&'static str]) -> impl Fn(&str) -> Result<Command> {
+pub fn dictionary_cmd(dict: &'static [&'static str]) -> impl FnMut(&str) -> Result<Command> {
     let tup = words((literal("dict"), dict_word(dict), number::<u32>));
     let mk = |(_, ix, c)| Command::Dictionary(ix, c);
     fmap(mk, tup)
@@ -187,7 +187,7 @@ pub fn dictionary_cmd(dict: &'static [&'static str]) -> impl Fn(&str) -> Result<
 ///
 /// A slightly simplified version of [`lookup`] command, parses one of the words from a list
 /// given as a parameter and returns it's index on success
-pub fn dict_word(dict: &'static [&'static str]) -> impl Fn(&str) -> Result<usize> {
+pub fn dict_word(dict: &'static [&'static str]) -> impl FnMut(&str) -> Result<usize> {
     move |input| {
         let mut state = State::disabled();
         let mut r = None;

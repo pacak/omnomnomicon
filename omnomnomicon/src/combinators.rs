@@ -7,9 +7,9 @@
 //! This fails:
 //! ```compile_fail
 //! # use omnomnomicon::prelude::*;
-//! let hello = literal("hello ");
-//! let p1 = pair(hello, literal("world"));
-//! let p2 = pair(hello, literal("omnomnomicon"));
+//! let mut hello = literal("hello ");
+//! let p1 = pair(&mut hello, literal("world"));
+//! let p2 = pair(&mut hello, literal("omnomnomicon"));
 //! let both = or(p1, p2);
 //!
 //! # Ok::<(), String>(())
@@ -18,9 +18,9 @@
 //! This works:
 //! ```rust
 //! # use omnomnomicon::prelude::*;
-//! let hello = literal("hello ");
-//! let p1 = pair(&hello, literal("world"));
-//! let p2 = pair(&hello, literal("omnomnomicon"));
+//! let mut hello = literal("hello ");
+//! let p1 = pair(literal("hello "), literal("world"));
+//! let p2 = pair(literal("hello "), literal("omnomnomicon"));
 //! let both = or(p1, p2);
 //! let r = parse_result(both, "hello omnomnomicon")?;
 //! // ("hello ", "omnomnomicon")
@@ -35,7 +35,7 @@
 //! let p1 = literal("world");
 //! let p2 = literal("omnomnomicon");
 //! let both = or(p1, p2);
-//! let p = pair(literal("hello "), both);
+//! let p = pair(hello, both);
 //! let r = parse_result(p, "hello omnomnomicon")?;
 //! // ("hello ", "omnomnomicon")
 //! # assert_eq!(r, ("hello ", "omnomnomicon"));
@@ -56,25 +56,25 @@ use crate::*;
 /// # Examples
 /// ```rust
 /// # use omnomnomicon::prelude::*;
-/// let parser = or(literal("help"), literal("hello"));
+/// let mut parser = or(literal("help"), literal("hello"));
 ///
-/// let r = parse_result(&parser, "hello")?;
+/// let r = parse_result(&mut parser, "hello")?;
 /// // "hello"
 /// # assert_eq!(r, "hello");
 ///
-/// let r = parse_result(&parser, "help")?;
+/// let r = parse_result(&mut parser, "help")?;
 /// // "help"
 /// # assert_eq!(r, "help");
 ///
-/// let r = parse_result(&parser, "helios").is_err();
+/// let r = parse_result(&mut parser, "helios").is_err();
 /// // true
 /// # assert!(r);
 /// # Ok::<(), String>(())
 /// ```
-pub fn or<F1, F2, R>(f1: F1, f2: F2) -> impl Fn(&str) -> Result<R>
+pub fn or<F1, F2, R>(mut f1: F1, mut f2: F2) -> impl FnMut(&str) -> Result<R>
 where
-    F1: Fn(&str) -> Result<R>,
-    F2: Fn(&str) -> Result<R>,
+    F1: FnMut(&str) -> Result<R>,
+    F2: FnMut(&str) -> Result<R>,
 {
     move |input| {
         let err1 = match f1(input) {
@@ -105,10 +105,10 @@ where
 /// # assert_eq!(r, "hello");
 /// # Ok::<(), String>(())
 /// ```
-pub fn fst<F1, F2, R1, R2>(f1: F1, f2: F2) -> impl Fn(&str) -> Result<R1>
+pub fn fst<F1, F2, R1, R2>(f1: F1, f2: F2) -> impl FnMut(&str) -> Result<R1>
 where
-    F1: Fn(&str) -> Result<R1>,
-    F2: Fn(&str) -> Result<R2>,
+    F1: FnMut(&str) -> Result<R1>,
+    F2: FnMut(&str) -> Result<R2>,
 {
     fmap(|x| x.0, pair(f1, f2))
 }
@@ -128,10 +128,10 @@ where
 /// # assert_eq!(r, "world");
 /// # Ok::<(), String>(())
 /// ```
-pub fn snd<F1, F2, R1, R2>(f1: F1, f2: F2) -> impl Fn(&str) -> Result<R2>
+pub fn snd<F1, F2, R1, R2>(f1: F1, f2: F2) -> impl FnMut(&str) -> Result<R2>
 where
-    F1: Fn(&str) -> Result<R1>,
-    F2: Fn(&str) -> Result<R2>,
+    F1: FnMut(&str) -> Result<R1>,
+    F2: FnMut(&str) -> Result<R2>,
 {
     fmap(|x| x.1, pair(f1, f2))
 }
@@ -151,17 +151,24 @@ where
 /// # assert_eq!(r, "hello");
 /// # Ok::<(), String>(())
 /// ```
+
 pub fn between<F1, F2, F3, R1, R2, R3>(
-    first: F1,
-    last: F3,
-    parser: F2,
-) -> impl Fn(&str) -> Result<R2>
+    mut first: F1,
+    mut last: F3,
+    mut parser: F2,
+) -> impl FnMut(&str) -> Result<R2>
 where
-    F1: Fn(&str) -> Result<R1>,
-    F2: Fn(&str) -> Result<R2>,
-    F3: Fn(&str) -> Result<R3>,
+    F1: FnMut(&str) -> Result<R1>,
+    F2: FnMut(&str) -> Result<R2>,
+    F3: FnMut(&str) -> Result<R3>,
 {
-    fmap(|x: (R1, R2, R3)| x.1, tuple((first, parser, last)))
+    move |input| {
+        let (output, _) = first(input)?;
+        let (output, r) = output.bind(&mut parser)?;
+        let (output, _) = output.bind(&mut last)?;
+        //    fmap(|x: (R1, R2, R3)| x.1, tuple((first, parser, last)))
+        Ok((output, r))
+    }
 }
 
 /// Returns results from second of two space separated parses
@@ -173,25 +180,25 @@ where
 /// # use omnomnomicon::prelude::*;
 /// let p1 = literal("price");
 /// let p2 = number::<u32>;
-/// let p = snd_word(p1, p2);
-/// let r = parse_result(&p, "price 123")?;
+/// let mut p = snd_word(p1, p2);
+/// let r = parse_result(&mut p, "price 123")?;
 /// // 123
 /// # assert_eq!(r, 123);
 ///
-/// let r = parse_result(&p, "price123");
+/// let r = parse_result(&mut p, "price123");
 /// // fails to parse - no space present
 /// # assert_eq!(r.is_err(), true);
 /// # Ok::<(), String>(())
 /// ```
-pub fn snd_word<P1, P2, R1, R2>(first: P1, second: P2) -> impl Fn(&str) -> Result<R2>
+pub fn snd_word<P1, P2, R1, R2>(mut first: P1, mut second: P2) -> impl FnMut(&str) -> Result<R2>
 where
-    P1: Fn(&str) -> Result<R1>,
-    P2: Fn(&str) -> Result<R2>,
+    P1: FnMut(&str) -> Result<R1>,
+    P2: FnMut(&str) -> Result<R2>,
 {
     move |input| {
         let (output, _) = first(input)?;
         let consumed = input.len() > output.input.len();
-        let (output, r2) = output.bind_space(consumed, &second)?;
+        let (output, r2) = output.bind_space(consumed, &mut second)?;
         Ok((output, r2))
     }
 }
@@ -204,18 +211,18 @@ where
 /// ```rust
 /// # use omnomnomicon::prelude::*;
 /// let p = tagged("weight", number::<u32>);
-/// let r = parse_result(&p, "weight 123")?;
+/// let r = parse_result(p, "weight 123")?;
 /// // 123
 /// # assert_eq!(r, 123);
 /// # Ok::<(), String>(())
 /// ```
-pub fn tagged<P, R>(tag: &'static str, parser: P) -> impl Fn(&str) -> Result<R>
+pub fn tagged<P, R>(tag: &'static str, mut parser: P) -> impl FnMut(&str) -> Result<R>
 where
-    P: Fn(&str) -> Result<R>,
+    P: FnMut(&str) -> Result<R>,
 {
     move |input| {
         let (output, _) = crate::parsers::literal(tag)(input)?;
-        output.bind_space(!tag.is_empty(), &parser)
+        output.bind_space(!tag.is_empty(), &mut parser)
     }
 }
 
@@ -226,20 +233,20 @@ where
 /// # use omnomnomicon::prelude::*;
 /// let check = words((number::<u16>, number::<u16>));
 /// // take next 5 as long as they form two space separated numbers
-/// let p = snd(peek(check), take(5));
-/// let r = parse_result(&p, "12 56")?;
+/// let mut p = snd(peek(check), take(5));
+/// let r = parse_result(&mut p, "12 56")?;
 /// // "12 56"
 /// # assert_eq!(r, "12 56");
 ///
-/// let r = parse_result(&p, "12356").is_err();
+/// let r = parse_result(&mut p, "12356").is_err();
 /// // fails to parse
 /// # assert!(r);
 ///
 /// # Ok::<(), String>(())
 /// ```
-pub fn peek<F, R>(parser: F) -> impl Fn(&str) -> Result<R>
+pub fn peek<F, R>(mut parser: F) -> impl FnMut(&str) -> Result<R>
 where
-    F: Fn(&str) -> Result<R>,
+    F: FnMut(&str) -> Result<R>,
 {
     move |input| {
         let res = parser(input)?;
@@ -254,25 +261,25 @@ where
 /// # Examples
 /// ```rust
 /// # use omnomnomicon::prelude::*;
-/// let p = pair(number::<u16>, literal("px"));
+/// let mut p = pair(number::<u16>, literal("px"));
 ///
-/// let r = parse_result(&p, "123px")?;
+/// let r = parse_result(&mut p, "123px")?;
 /// // (123, "px")
 /// # assert_eq!(r, (123, "px"));
 ///
-/// let r = parse_result(&p, "123p").is_err();
+/// let r = parse_result(&mut p, "123p").is_err();
 /// // fails to parse due to second element
 /// # assert!(r);
 /// # Ok::<(), String>(())
 /// ```
-pub fn pair<F1, F2, R1, R2>(first: F1, second: F2) -> impl Fn(&str) -> Result<(R1, R2)>
+pub fn pair<F1, F2, R1, R2>(mut first: F1, mut second: F2) -> impl FnMut(&str) -> Result<(R1, R2)>
 where
-    F1: Fn(&str) -> Result<R1>,
-    F2: Fn(&str) -> Result<R2>,
+    F1: FnMut(&str) -> Result<R1>,
+    F2: FnMut(&str) -> Result<R2>,
 {
     move |input| {
         let (output, r1) = first(input)?;
-        let (output, r2) = output.bind(&second)?;
+        let (output, r2) = output.bind(&mut second)?;
         Ok((output, (r1, r2)))
     }
 }
@@ -284,19 +291,19 @@ where
 /// # Examples
 /// ```rust
 /// # use omnomnomicon::prelude::*;
-/// let p = option(number::<u32>);
-/// let r = parse_result(&p, "1234")?;
+/// let mut p = option(number::<u32>);
+/// let r = parse_result(&mut p, "1234")?;
 /// // Some(1234)
 /// # assert_eq!(r, Some(1234));
 ///
-/// let r = parse_result(&p, "potato")?;
+/// let r = parse_result(&mut p, "potato")?;
 /// // None
 /// # assert_eq!(r, None);
 /// # Ok::<(), String>(())
 /// ```
-pub fn option<P, R>(parser: P) -> impl Fn(&'_ str) -> Result<'_, Option<R>>
+pub fn option<P, R>(mut parser: P) -> impl FnMut(&'_ str) -> Result<'_, Option<R>>
 where
-    P: Fn(&'_ str) -> Result<'_, R>,
+    P: FnMut(&'_ str) -> Result<'_, R>,
 {
     move |input| match parser(input) {
         Ok((output, r)) => Ok((output, Some(r))),
@@ -309,8 +316,8 @@ where
 fn words_preserve_partial_match_info() {
     use crate::prelude::*;
     let w = option(literal("potato"));
-    let p = words((literal("a"), w, number::<u32>));
-    let h = parse_hints(&p, "a p").unwrap().replacements();
+    let mut p = words((literal("a"), w, number::<u32>));
+    let h = parse_hints(&mut p, "a p").unwrap().replacements();
     assert_eq!(&h, &["potato"]);
 }
 
@@ -340,9 +347,9 @@ fn pwords_preserve_partial_match_info() {
 /// # Panics
 /// With `sanity` feature enabled this parser will panic if subparser
 /// returns a result without consuming any input.
-pub fn many<F, R>(parser: F) -> impl Fn(&str) -> Result<Vec<R>>
+pub fn many<F, R>(mut parser: F) -> impl FnMut(&str) -> Result<Vec<R>>
 where
-    F: Fn(&str) -> Result<R>,
+    F: FnMut(&str) -> Result<R>,
 {
     move |mut input| {
         let mut res = Vec::new();
@@ -387,10 +394,10 @@ where
 /// # assert_eq!(r, 47);
 /// # Ok::<(), String>(())
 /// ```
-pub fn fmap<F, P, A, B>(transform: F, parser: P) -> impl Fn(&str) -> Result<B>
+pub fn fmap<F, P, A, B>(mut transform: F, mut parser: P) -> impl FnMut(&str) -> Result<B>
 where
-    F: Fn(A) -> B,
-    P: Fn(&str) -> Result<A>,
+    F: FnMut(A) -> B,
+    P: FnMut(&str) -> Result<A>,
 {
     move |input| {
         let (output, r) = parser(input)?;
@@ -463,20 +470,20 @@ where
 /// # use omnomnomicon::prelude::*;
 /// let t = constmap(true, literal("true"));
 /// let f = constmap(false, literal("false"));
-/// let b = label("bool", or(t, f));
+/// let mut b = label("bool", or(t, f));
 ///
-/// let r = parse_result(&b, "true")?;
+/// let r = parse_result(&mut b, "true")?;
 /// // true
 /// assert_eq!(r, true);
 ///
-/// let r = parse_result(&b, "false")?;
+/// let r = parse_result(&mut b, "false")?;
 /// // false
 /// assert_eq!(r, false);
 /// # Ok::<(), String>(())
 /// ```
-pub fn constmap<P, A, B>(replacement: B, parser: P) -> impl Fn(&'_ str) -> Result<'_, B>
+pub fn constmap<P, A, B>(replacement: B, mut parser: P) -> impl FnMut(&'_ str) -> Result<'_, B>
 where
-    P: Fn(&'_ str) -> Result<'_, A>,
+    P: FnMut(&'_ str) -> Result<'_, A>,
     B: Clone,
 {
     move |input| Ok((parser(input)?.0, replacement.clone()))

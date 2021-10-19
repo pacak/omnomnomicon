@@ -3,7 +3,7 @@ use crate::Result;
 /// Helper trait for [`choice`] combinator.
 pub trait Choice<R> {
     /// see [`choice`]
-    fn choice<'a>(&self, input: &'a str) -> Result<'a, R>;
+    fn choice<'a>(&mut self, input: &'a str) -> Result<'a, R>;
 }
 
 /// Apply parsers one by one until one succeeds
@@ -24,7 +24,7 @@ pub trait Choice<R> {
 /// # assert_eq!(r, "hi");
 /// # Ok::<(), String>(())
 /// ```
-pub fn choice<P: Choice<R>, R>(parsers: P) -> impl Fn(&str) -> Result<R> {
+pub fn choice<P: Choice<R>, R>(mut parsers: P) -> impl FnMut(&str) -> Result<R> {
     move |input| parsers.choice(input)
 }
 
@@ -41,10 +41,10 @@ macro_rules! derive_choice {
     (@mk_impl $fparser:ident $($parser:ident)+) => {
         impl<$fparser, $($parser),+, R> Choice<R> for ($fparser, $($parser),+)
         where
-            $fparser: Fn(&str) -> Result<R>,
-            $( $parser: Fn(&str) -> Result<R>),+
+            $fparser: FnMut(&str) -> Result<R>,
+            $( $parser: FnMut(&str) -> Result<R>),+
         {
-            fn choice<'a>(&self, input: &'a str) -> Result<'a, R> {
+            fn choice<'a>(&mut self, input: &'a str) -> Result<'a, R> {
                 let mut term = match self.0(input) {
                     Err(err) => err,
                     ok => return ok,

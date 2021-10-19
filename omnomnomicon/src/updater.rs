@@ -38,7 +38,7 @@ use crate::Result;
 pub fn updater_for<'a, T>(
     item: &'a T,
     label: &'static str,
-) -> impl Fn(&str) -> Result<T::Updater> + 'a
+) -> impl FnMut(&str) -> Result<T::Updater> + 'a
 where
     T: Updater,
 {

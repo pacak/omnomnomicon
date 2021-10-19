@@ -26,9 +26,9 @@ use crate::*;
 /// # Errors
 /// If parser does not produces a result this function this will produce a string that might
 /// contain parser's expectations
-pub fn parse_result<F, R>(parser: F, input: &str) -> core::result::Result<R, String>
+pub fn parse_result<F, R>(mut parser: F, input: &str) -> core::result::Result<R, String>
 where
-    F: Fn(&str) -> Result<R>,
+    F: FnMut(&str) -> Result<R>,
 {
     match parser(input) {
         Ok((_, r)) => Ok(r),
@@ -53,7 +53,7 @@ where
 /// ```
 pub fn parse_hints<F, R>(parser: F, input: &str) -> core::result::Result<Hints, String>
 where
-    F: Fn(&str) -> Result<R>,
+    F: FnMut(&str) -> Result<R>,
 {
     match apply_parser(parser, input) {
         Some(ParseOutcome::Hints(hints)) => Ok(hints),
@@ -70,15 +70,15 @@ where
 /// let p1 = label("label 1", literal("hello"));
 /// let p2 = label("label 2", literal("help"));
 /// let p3 = label("label 3", literal("world"));
-/// let p = choice((p1, p2, p3));
-/// let r = parse_failure(p, "potato")?.message;
+/// let mut p = choice((p1, p2, p3));
+/// let r = parse_failure(&mut p, "potato")?.message;
 /// // "literal not found"
 /// # assert_eq!(r, "literal not found");
 /// # Ok::<(), String>(())
 /// ```
 pub fn parse_failure<F, R>(parser: F, input: &str) -> core::result::Result<Failure, String>
 where
-    F: Fn(&str) -> Result<R>,
+    F: FnMut(&str) -> Result<R>,
 {
     match apply_parser(parser, input) {
         Some(ParseOutcome::Failure(x)) => Ok(x),

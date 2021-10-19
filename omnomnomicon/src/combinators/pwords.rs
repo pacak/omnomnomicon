@@ -3,7 +3,7 @@ use crate::*;
 /// Helper trait for [`pwords`] combinator.
 pub trait PermWords<R> {
     /// see [`pwords`]
-    fn pwords<'a>(&self, input: &'a str) -> Result<'a, R>;
+    fn pwords<'a>(&mut self, input: &'a str) -> Result<'a, R>;
 }
 
 /// Apply parsers in arbitrary order until all succeed with extra spaces between them
@@ -20,27 +20,27 @@ pub trait PermWords<R> {
 /// let p1 = literal("a");
 /// let p2 = option(literal("b"));
 /// let p3 = literal("c");
-/// let p = pwords((p1, p2, p3));
+/// let mut p = pwords((p1, p2, p3));
 ///
-/// let r = parse_result(&p, "a b c")?;
+/// let r = parse_result(&mut p, "a b c")?;
 /// // ("a", Some("b"), "c")
 /// # assert_eq!(r, ("a", Some("b"), "c"));
 ///
-/// let r = parse_result(&p, "b c a")?;
+/// let r = parse_result(&mut p, "b c a")?;
 /// // ("a", Some("b"), "c")
 /// # assert_eq!(r, ("a", Some("b"), "c"));
 ///
-/// let r = parse_result(&p, "c a")?;
+/// let r = parse_result(&mut p, "c a")?;
 /// // ("a", None, "c")
 /// # assert_eq!(r, ("a", None, "c"));
 ///
-/// let r = parse_result(&p, "c a b")?;
+/// let r = parse_result(&mut p, "c a b")?;
 /// // ("a", Some("b"), "c")
 /// # assert_eq!(r, ("a", Some("b"), "c"));
 ///
 /// # Ok::<(), String>(())
 /// ```
-pub fn pwords<P: PermWords<R>, R>(parsers: P) -> impl Fn(&str) -> Result<R> {
+pub fn pwords<P: PermWords<R>, R>(mut parsers: P) -> impl FnMut(&str) -> Result<R> {
     move |input| parsers.pwords(input)
 }
 
@@ -100,7 +100,7 @@ macro_rules! derive_pwords {
 
     (@parse_step $step:tt, $parsers:ident, $st:ident, $r:ident, ) => {};
     (@parse_step $step:tt, $parsers:ident, $st:ident, $r:ident, $_next:ident $($result:ident)*) => {
-        pass(&mut $r . $step, & $parsers . $step, &mut $st);
+        pass(&mut $r . $step, &mut $parsers . $step, &mut $st);
         succ!($step, derive_pwords!(@parse_step, $parsers, $st, $r, $($result)*));
     };
 
@@ -108,9 +108,9 @@ macro_rules! derive_pwords {
     (@mk_impl $($parser:ident $result:ident),+) => {
         impl<$($parser),+, $($result),+> PermWords<($($result),+)> for ($($parser),+)
         where
-            $( $parser: Fn(&str) -> Result<$result>),+
+            $( $parser: FnMut(&str) -> Result<$result>),+
         {
-            fn pwords<'a>(&self, input: &'a str) -> Result<'a, ($($result),+)> {
+            fn pwords<'a>(&mut self, input: &'a str) -> Result<'a, ($($result),+)> {
                 let mut r = ( $( <Option<(bool, $result)>>::None ),+);
                 let mut st = St::new(input);
 
@@ -179,9 +179,9 @@ impl Input<'_> {
     }
 }
 
-fn pass<'a, P, R>(result: &mut Option<(bool, R)>, parser: P, st: &mut St<'a>)
+fn pass<'a, P, R>(result: &mut Option<(bool, R)>, mut parser: P, st: &mut St<'a>)
 where
-    P: Fn(&'a str) -> Result<'a, R>,
+    P: FnMut(&'a str) -> Result<'a, R>,
 {
     if let Some((true, _)) = result {
         return;
@@ -242,28 +242,51 @@ fn test_pwords_hints() {
     let p1 = label("p1", literal("a"));
     let p2 = label("p2", option(literal("b")));
     let p3 = label("p3", option(literal("c")));
-    let p = pwords((p1, p2, p3));
+    let mut p = pwords((p1, p2, p3));
     //let p = pwords2(p1, p2, p3);
 
     assert_eq!(
-        parse_result(&p, "b c a").unwrap(),
+        parse_result(&mut p, "b c a").unwrap(),
         ("a", Some("b"), Some("c"))
     );
-    assert_eq!(parse_result(&p, "c a").unwrap(), ("a", None, Some("c")));
-    assert_eq!(parse_result(&p, "a").unwrap(), ("a", None, None));
+    assert_eq!(parse_result(&mut p, "c a").unwrap(), ("a", None, Some("c")));
+    assert_eq!(parse_result(&mut p, "a").unwrap(), ("a", None, None));
     assert_eq!(
-        parse_result(&p, "b a c").unwrap(),
+        parse_result(&mut p, "b a c").unwrap(),
         ("a", Some("b"), Some("c"))
     );
-    assert_eq!(parse_result(&p, "b a b").unwrap(), ("a", Some("b"), None));
+    assert_eq!(
+        parse_result(&mut p, "b a b").unwrap(),
+        ("a", Some("b"), None)
+    );
 
-    let labels = |s| {
-        let mut v = parse_hints(&p, s).unwrap().labels.to_vec();
+    let mut labels = |s| {
+        let mut v = parse_hints(&mut p, s).unwrap().labels.to_vec();
         v.sort();
         v
     };
-    let comps = |s| {
-        let mut v = parse_hints(&p, s)
+
+    assert_eq!(labels(""), ["p1", "p2", "p3"]);
+
+    assert_eq!(labels("a").len(), 0);
+    assert_eq!(labels("b").len(), 0);
+    assert_eq!(labels("c").len(), 0);
+
+    assert_eq!(labels("a "), ["p2", "p3"]);
+    assert_eq!(labels("b "), ["p1", "p3"]);
+    assert_eq!(labels("c "), ["p1", "p2"]);
+
+    assert_eq!(labels("a b").len(), 0);
+    assert_eq!(labels("b a").len(), 0);
+    assert_eq!(labels("a c").len(), 0);
+    assert_eq!(labels("b c").len(), 0);
+
+    assert_eq!(labels("a b "), ["p3"]);
+    assert_eq!(labels("a c "), ["p2"]);
+    assert_eq!(labels("b c "), ["p1"]);
+
+    let mut comps = |s| {
+        let mut v = parse_hints(&mut p, s)
             .unwrap()
             .comps
             .into_iter()
@@ -279,30 +302,11 @@ fn test_pwords_hints() {
     assert_eq!(comps("b"), [" "]);
     assert_eq!(comps("c"), [" "]);
 
-    assert_eq!(labels(""), ["p1", "p2", "p3"]);
-
-    assert_eq!(labels("a").len(), 0);
-    assert_eq!(labels("b").len(), 0);
-    assert_eq!(labels("c").len(), 0);
-
     assert_eq!(comps("a "), ["b", "c"]);
     assert_eq!(comps("b "), ["a", "c"]);
     assert_eq!(comps("c "), ["a", "b"]);
 
-    assert_eq!(labels("a "), ["p2", "p3"]);
-    assert_eq!(labels("b "), ["p1", "p3"]);
-    assert_eq!(labels("c "), ["p1", "p2"]);
-
-    assert_eq!(labels("a b").len(), 0);
-    assert_eq!(labels("b a").len(), 0);
-    assert_eq!(labels("a c").len(), 0);
-    assert_eq!(labels("b c").len(), 0);
-
-    assert_eq!(labels("a b "), ["p3"]);
-    assert_eq!(labels("a c "), ["p2"]);
-    assert_eq!(labels("b c "), ["p1"]);
-
-    assert_eq!(parse_hints(&p, "a b c").is_err(), true);
+    assert_eq!(parse_hints(&mut p, "a b c").is_err(), true);
 }
 
 derive_pwords!(P1 R1, P2 R2, P3 R3, P4 R4, P5 R5, P6 R6, P7 R7, P8 R8, P9 R9, P10 R10);

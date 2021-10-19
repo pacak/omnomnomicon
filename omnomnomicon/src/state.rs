@@ -73,7 +73,7 @@ impl<'a> Output<'a> {
     /// ```rust
     /// # use omnomnomicon::prelude::*;
     /// // individual subparsers
-    /// let p1 = literal("hello");
+    /// let mut p1 = literal("hello");
     /// let p2 = literal(" world");
     ///
     /// let input = "hello world";
@@ -88,9 +88,9 @@ impl<'a> Output<'a> {
     /// # Ok::<(), Terminate>(())
     /// ```
     #[inline]
-    pub fn bind<F, R>(self, parser: F) -> Result<'a, R>
+    pub fn bind<F, R>(self, mut parser: F) -> Result<'a, R>
     where
-        F: Fn(&str) -> Result<R>,
+        F: FnMut(&str) -> Result<R>,
     {
         match parser(self.input) {
             Ok((output, r)) => Ok((output + self.state, r)),
@@ -104,14 +104,14 @@ impl<'a> Output<'a> {
     /// Outer edges are considered as non consuming
     /// Space is consumed by the right consuming entry
 
-    pub fn bind_space<F, R>(self, consumed: bool, parser: F) -> Result<'a, R>
+    pub fn bind_space<F, R>(self, consumed: bool, mut parser: F) -> Result<'a, R>
     where
-        F: Fn(&str) -> Result<R>,
+        F: FnMut(&str) -> Result<R>,
     {
         //
-        fn try_trimmed<P, R>(parser: P, input: &str) -> Result<R>
+        fn try_trimmed<P, R>(mut parser: P, input: &str) -> Result<R>
         where
-            P: Fn(&str) -> Result<R>,
+            P: FnMut(&str) -> Result<R>,
         {
             let trimmed = input.trim_start();
             if input.len() > trimmed.len() {
@@ -133,7 +133,7 @@ impl<'a> Output<'a> {
             // - next parser consumes empty input
             //
             // This needs to be done in two separate calls since inputs are different
-            let err = match try_trimmed(&parser, self.input) {
+            let err = match try_trimmed(&mut parser, self.input) {
                 Ok((o, r)) => {
                     return Ok((o + self.state, r));
                 }
@@ -249,30 +249,30 @@ impl Add<State> for Output<'_> {
 ///     }
 /// }
 ///
-/// let p = label("useful", useful_parser);
+/// let mut p = label("useful", useful_parser);
 ///
-/// let r = parse_result(&p, " x");
+/// let r = parse_result(&mut p, " x");
 /// // Ok(1), "useful" label is active since more spaces will be accepted
 /// # assert_eq!(r, Ok(1));
 ///
-/// let r = parse_result(&p, "  x  ");
+/// let r = parse_result(&mut p, "  x  ");
 /// // Ok(2), "useful" label is active since more spaces will be accepted
 /// # assert_eq!(r, Ok(2));
-/// # assert_eq!(parse_hints(&p, " x ")?.labels(), &["useful"]);
+/// # assert_eq!(parse_hints(&mut p, " x ")?.labels(), &["useful"]);
 ///
-/// let r = parse_result(&p, "");
+/// let r = parse_result(&mut p, "");
 /// // fails, "useful" label is active since preceding spaces will be accepted
 /// # assert_eq!(r.is_err(), true);
-/// # assert_eq!(parse_hints(&p, "")?.labels(), &["useful"]);
+/// # assert_eq!(parse_hints(&mut p, "")?.labels(), &["useful"]);
 ///
-/// let r = parse_result(&p, "nope");
+/// let r = parse_result(&mut p, "nope");
 /// // fails, no labels since no input can be matched
 /// # assert_eq!(r.is_err(), true);
 ///
-/// let r = parse_result(&p, " x .");
+/// let r = parse_result(&mut p, " x .");
 /// // Ok(1), no labels since parser is fully satisfied
 /// # assert_eq!(r, Ok(1));
-/// # assert_eq!(parse_hints(&p, " x .").is_err(), true);
+/// # assert_eq!(parse_hints(&mut p, " x .").is_err(), true);
 /// # Ok::<(), String>(())
 /// ```
 ///
@@ -739,7 +739,7 @@ impl Comp {
 #[test]
 fn bind_space_preserves_potential_info() {
     use omnomnomicon::prelude::*;
-    let p1 = option(literal("foo"));
+    let mut p1 = option(literal("foo"));
     let p2 = option(literal("bar"));
 
     let (o, _r1) = p1("").unwrap();

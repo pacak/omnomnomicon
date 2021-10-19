@@ -65,7 +65,7 @@ pub use omnomnomicon_derive::{Parser, Updater};
 /// ```rust
 /// # use omnomnomicon::prelude::*;
 /// let p = label("floating point", f64::parse);
-/// let r = parse_result(&p, "3.1415")?;
+/// let r = parse_result(p, "3.1415")?;
 /// // 3.1415
 /// # assert_eq!(r, 3.1415);
 /// # Ok::<(), String>(())

@@ -107,9 +107,9 @@ pub enum ParseOutcome {
 /// # }
 /// # Ok::<(), String>(())
 /// ```
-pub fn apply_parser<F, R>(parser: F, input: &str) -> Option<ParseOutcome>
+pub fn apply_parser<F, R>(mut parser: F, input: &str) -> Option<ParseOutcome>
 where
-    F: Fn(&str) -> Result<R>,
+    F: FnMut(&str) -> Result<R>,
 {
     let info = match parser(input) {
         Ok((output, _)) if !output.state.is_enabled() => return None,
@@ -196,11 +196,11 @@ where
 /// # }
 /// # Ok::<(), String>(())
 /// ```
-pub fn apply_parser_rec<P, R>(parser: P, input: &str) -> Option<ParseOutcome>
+pub fn apply_parser_rec<P, R>(mut parser: P, input: &str) -> Option<ParseOutcome>
 where
-    P: Fn(&str) -> Result<R>,
+    P: FnMut(&str) -> Result<R>,
 {
-    let mut hints = match apply_parser(&parser, input)? {
+    let mut hints = match apply_parser(&mut parser, input)? {
         ParseOutcome::Hints(
             hints @ Hints {
                 replacement: Some(_),
@@ -211,7 +211,7 @@ where
     };
     let mut new_input = format!("{}{}", input, &hints.replacement.as_ref().unwrap());
     for _ in 0..32 {
-        match apply_parser(&parser, &new_input) {
+        match apply_parser(&mut parser, &new_input) {
             Some(ParseOutcome::Hints(Hints {
                 replacement: Some(rep),
                 ..
@@ -232,9 +232,9 @@ mod tests {
 
     #[test]
     fn bind_space_does_not_accept_spaces_in_bogus_places() {
-        let p = words((literal("potat"), tag((), "x")));
+        let mut p = words((literal("potat"), tag((), "x")));
         // at this point parser p can't possibly match
-        assert!(parse_hints(&p, "potato").is_err());
+        assert!(parse_hints(&mut p, "potato").is_err());
     }
 
     #[test]
@@ -245,7 +245,7 @@ mod tests {
             let cmd = pwords((tprice, tqty));
             fmap(|_| (), cmd)(input)
         }
-        let f = parse_failure(&p, "\0\0\0").unwrap();
+        let f = parse_failure(&mut p, "\0\0\0").unwrap();
         assert_eq!(f.offset, 0);
     }
 
@@ -260,25 +260,25 @@ mod tests {
 
     #[test]
     fn words_and_label_interactions() {
-        let p1 = label("first", number::<u8>);
-        let p2 = label("second", number::<u8>);
-        let p = words((&p1, &p2));
+        let mut p1 = label("first", number::<u8>);
+        assert!(parse_hints(&mut p1, "1 ").is_err());
+        let mut p2 = label("second", number::<u8>);
+        let mut p = words((&mut p1, &mut p2));
 
-        assert_eq!(&parse_hints(&p, "").unwrap().labels(), &["first"]);
-        assert_eq!(&parse_hints(&p, "1").unwrap().labels(), &["first"]);
-        assert_eq!(&parse_hints(&p, "1 ").unwrap().labels(), &["second"]);
-        assert_eq!(&parse_hints(&p, "1 2").unwrap().labels(), &["second"]);
-        assert!(parse_hints(&p1, "1 ").is_err());
-        assert!(parse_hints(&p, "1 2 ").is_err());
+        assert_eq!(&parse_hints(&mut p, "").unwrap().labels(), &["first"]);
+        assert_eq!(&parse_hints(&mut p, "1").unwrap().labels(), &["first"]);
+        assert_eq!(&parse_hints(&mut p, "1 ").unwrap().labels(), &["second"]);
+        assert_eq!(&parse_hints(&mut p, "1 2").unwrap().labels(), &["second"]);
+        assert!(parse_hints(&mut p, "1 2 ").is_err());
     }
 
     #[test]
     fn words_and_comp_interactions() {
-        let p1 = tag((), "t1");
-        let p2 = tag((), "t2");
-        let p3 = label("first", option(number::<u8>));
-        let p4 = label("second", number::<u8>);
-        let p = words((option(&p1), &p2, &p3, &p4));
+        let mut p1 = tag((), "t1");
+        let mut p2 = tag((), "t2");
+        let mut p3 = label("first", option(number::<u8>));
+        let mut p4 = label("second", number::<u8>);
+        let mut p = words((option(&mut p1), &mut p2, &mut p3, &mut p4));
 
         let comps = |h: Hints| {
             h.comps
@@ -289,14 +289,14 @@ mod tests {
 
         let none = <Vec<String>>::new();
 
-        assert_eq!(&comps(parse_hints(&p, "").unwrap()), &["t2", "t1"]);
-        assert_eq!(&comps(parse_hints(&p, "t").unwrap()), &["t2", "t1"]);
-        assert_eq!(&comps(parse_hints(&p, "t1").unwrap()), &[" "]);
-        assert_eq!(&comps(parse_hints(&p, "t1 ").unwrap()), &["t2"]);
-        assert_eq!(&comps(parse_hints(&p, "t1 t2").unwrap()), &[" "]);
-        assert_eq!(&comps(parse_hints(&p, "t1 t2 ").unwrap()), &none);
-        assert_eq!(&comps(parse_hints(&p, "t1 t2 12").unwrap()), &[" "]);
-        assert_eq!(&comps(parse_hints(&p, "t1 t2 12 ").unwrap()), &none);
-        assert_eq!(&comps(parse_hints(&p, "t1 t2 12 1").unwrap()), &none);
+        assert_eq!(&comps(parse_hints(&mut p, "").unwrap()), &["t2", "t1"]);
+        assert_eq!(&comps(parse_hints(&mut p, "t").unwrap()), &["t2", "t1"]);
+        assert_eq!(&comps(parse_hints(&mut p, "t1").unwrap()), &[" "]);
+        assert_eq!(&comps(parse_hints(&mut p, "t1 ").unwrap()), &["t2"]);
+        assert_eq!(&comps(parse_hints(&mut p, "t1 t2").unwrap()), &[" "]);
+        assert_eq!(&comps(parse_hints(&mut p, "t1 t2 ").unwrap()), &none);
+        assert_eq!(&comps(parse_hints(&mut p, "t1 t2 12").unwrap()), &[" "]);
+        assert_eq!(&comps(parse_hints(&mut p, "t1 t2 12 ").unwrap()), &none);
+        assert_eq!(&comps(parse_hints(&mut p, "t1 t2 12 1").unwrap()), &none);
     }
 }

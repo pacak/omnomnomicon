@@ -4,7 +4,7 @@ use crate::{Output, Result, Terminate};
 /// Helper trait for [`perm`] combinator.
 pub trait Perm<R> {
     /// see [`perm`]
-    fn perm<'a>(&self, input: &'a str) -> Result<'a, R>;
+    fn perm<'a>(&mut self, input: &'a str) -> Result<'a, R>;
 }
 
 /// Apply parsers in arbitrary order until all succeed
@@ -20,33 +20,33 @@ pub trait Perm<R> {
 /// let p1 = literal("a");
 /// let p2 = option(literal("b"));
 /// let p3 = literal("c");
-/// let p = perm((p1, p2, p3));
+/// let mut p = perm((p1, p2, p3));
 ///
-/// let r = parse_result(&p, "abc")?;
+/// let r = parse_result(&mut p, "abc")?;
 /// // ("a", Some("b"), "c")
 /// # assert_eq!(r, ("a", Some("b"), "c"));
 ///
-/// let r = parse_result(&p, "bca")?;
+/// let r = parse_result(&mut p, "bca")?;
 /// // ("a", Some("b"), "c")
 /// # assert_eq!(r, ("a", Some("b"), "c"));
 ///
-/// let r = parse_result(&p, "ca")?;
+/// let r = parse_result(&mut p, "ca")?;
 /// // ("a", None, "c")
 /// # assert_eq!(r, ("a", None, "c"));
 ///
-/// let r = parse_result(&p, "cab")?;
+/// let r = parse_result(&mut p, "cab")?;
 /// // ("a", Some("b"), "c")
 /// # assert_eq!(r, ("a", Some("b"), "c"));
 ///
 /// # Ok::<(), String>(())
 /// ```
-pub fn perm<P: Perm<R>, R>(parsers: P) -> impl Fn(&str) -> Result<R> {
+pub fn perm<P: Perm<R>, R>(mut parsers: P) -> impl FnMut(&str) -> Result<R> {
     move |input| parsers.perm(input)
 }
 
-fn pass<'a, P, R>(result: &mut Option<(bool, R)>, parser: P, st: &mut St<'a>)
+fn pass<'a, P, R>(result: &mut Option<(bool, R)>, mut parser: P, st: &mut St<'a>)
 where
-    P: Fn(&'a str) -> Result<'a, R>,
+    P: FnMut(&'a str) -> Result<'a, R>,
 {
     if let Some((true, _)) = result {
         return;
@@ -115,16 +115,16 @@ macro_rules! derive_perm {
 
     (@parse_step $step:tt, $parsers:ident, $st:ident, $r:ident, ) => {};
     (@parse_step $step:tt, $parsers:ident, $st:ident, $r:ident, $_next:ident $($result:ident)*) => {
-        pass(&mut $r . $step, & $parsers . $step, &mut $st);
+        pass(&mut $r . $step, &mut $parsers . $step, &mut $st);
         succ!($step, derive_perm!(@parse_step, $parsers, $st, $r, $($result)*));
     };
 
     (@mk_impl $($parser:ident $result:ident),+) => {
         impl<$($parser),+, $($result),+> Perm<($($result),+)> for ($($parser),+)
         where
-            $( $parser: Fn(&str) -> Result<$result>),+
+            $( $parser: FnMut(&str) -> Result<$result>),+
         {
-            fn perm<'a>(&self, input: &'a str) -> Result<'a, ($($result),+)> {
+            fn perm<'a>(&mut self, input: &'a str) -> Result<'a, ($($result),+)> {
                 let mut r = ( $( <Option<(bool, $result)>>::None),+);
                 let mut st = St::new(input);
                 loop {
@@ -177,9 +177,9 @@ fn test_words() {
     let p1 = literal("a");
     let p2 = option(literal("b"));
     let p3 = literal("c");
-    let p = perm((p1, p2, p3));
-    assert_eq!(parse_result(&p, "ca").unwrap(), ("a", None, "c"));
-    assert_eq!(parse_result(&p, "abc").unwrap(), ("a", Some("b"), "c"));
-    assert_eq!(parse_result(&p, "bca").unwrap(), ("a", Some("b"), "c"));
-    assert_eq!(parse_result(&p, "cab").unwrap(), ("a", Some("b"), "c"));
+    let mut p = perm((p1, p2, p3));
+    assert_eq!(parse_result(&mut p, "ca").unwrap(), ("a", None, "c"));
+    assert_eq!(parse_result(&mut p, "abc").unwrap(), ("a", Some("b"), "c"));
+    assert_eq!(parse_result(&mut p, "bca").unwrap(), ("a", Some("b"), "c"));
+    assert_eq!(parse_result(&mut p, "cab").unwrap(), ("a", Some("b"), "c"));
 }

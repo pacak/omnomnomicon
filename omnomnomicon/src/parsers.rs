@@ -15,18 +15,18 @@ use crate::*;
 ///
 /// ```rust
 /// # use omnomnomicon::prelude::*;
-/// let p = label("triple", take(3));
-/// let r = parse_result(&p, "12")?;
+/// let mut p = label("triple", take(3));
+/// let r = parse_result(&mut p, "12")?;
 /// // "12"
 /// # assert_eq!(r, "12");
-/// let r = parse_hints(&p, "12")?.labels();
+/// let r = parse_hints(&mut p, "12")?.labels();
 /// // with "triple" label
 /// # assert_eq!(r, ["triple"]);
 ///
-/// let r = parse_result(&p, "123")?;
+/// let r = parse_result(&mut p, "123")?;
 /// // "123"
 /// # assert_eq!(r, "123");
-/// let err = parse_hints(&p, "123");
+/// let err = parse_hints(&mut p, "123");
 /// # assert!(err.is_err());
 ///
 /// # Ok::<(), String>(())
@@ -51,15 +51,15 @@ pub fn take(cnt: usize) -> impl Fn(&str) -> Result<String> {
 ///
 /// ```rust
 /// # use omnomnomicon::prelude::*;
-/// let p = label("triple", take_exact(3));
-/// let r = parse_hints(&p, "12")?.labels();
+/// let mut p = label("triple", take_exact(3));
+/// let r = parse_hints(&mut p, "12")?.labels();
 /// // fails with label "triple"
 /// # assert_eq!(&r, &["triple"]);
 ///
-/// let r = parse_result(&p, "123")?;
+/// let r = parse_result(&mut p, "123")?;
 /// // "123"
 /// # assert_eq!(r, "123");
-/// let r = parse_hints(&p, "123");
+/// let r = parse_hints(&mut p, "123");
 /// // no labels
 /// # assert!(r.is_err());
 ///
@@ -126,26 +126,26 @@ where
 ///
 /// ```rust
 /// # use omnomnomicon::prelude::*;
-/// let p = label("digits", take_while1(|c| c.is_ascii_digit()));
-/// let r = parse_result(&p, "123abc")?;
+/// let mut p = label("digits", take_while1(|c| c.is_ascii_digit()));
+/// let r = parse_result(&mut p, "123abc")?;
 /// // 123
 /// # assert_eq!(r, "123");
-/// let err = parse_hints(&p, "123abc");
+/// let err = parse_hints(&mut p, "123abc");
 /// // no hints, labels
 /// # assert!(err.is_err());
 ///
-/// let p = label("digits", take_while1(|c| c.is_ascii_digit()));
-/// let r = parse_result(&p, "12")?;
+/// let mut p = label("digits", take_while1(|c| c.is_ascii_digit()));
+/// let r = parse_result(&mut p, "12")?;
 /// // "12"
 /// # assert_eq!(r, "12");
-/// let r = parse_hints(&p, "12")?.labels();
+/// let r = parse_hints(&mut p, "12")?.labels();
 /// # assert_eq!(r, ["digits"]);
 ///
-/// let err = parse_hints(&p, "x");
+/// let err = parse_hints(&mut p, "x");
 /// // fails with error message
 /// # assert!(err.is_err());
 ///
-/// let r = parse_hints(&p, "")?.labels();
+/// let r = parse_hints(&mut p, "")?.labels();
 /// // fails with "digits" label
 /// # assert_eq!(r, ["digits"]);
 ///
@@ -170,10 +170,10 @@ where
 }
 
 /// Runs nested parser, fails if either nested parser fails or predicate on the output fails
-pub fn guard<P, F, R>(predicate: P, parser: F) -> impl Fn(&str) -> Result<R>
+pub fn guard<P, F, R>(mut predicate: P, mut parser: F) -> impl FnMut(&str) -> Result<R>
 where
-    P: Fn(&R) -> bool,
-    F: Fn(&str) -> Result<R>,
+    P: FnMut(&R) -> bool,
+    F: FnMut(&str) -> Result<R>,
 {
     move |input| {
         let (output, r) = parser(input)?;
@@ -199,13 +199,13 @@ pub fn is_eof(input: &str) -> Result<bool> {
 /// # Examples
 /// ```rust
 /// # use omnomnomicon::prelude::*;
-/// let p = fst(number::<u32>, eof);
+/// let mut p = fst(number::<u32>, eof);
 ///
-/// let r = parse_result(&p, "123")?;
+/// let r = parse_result(&mut p, "123")?;
 /// // 123
 /// # assert_eq!(r, 123);
 ///
-/// let r = parse_result(&p, "123x");
+/// let r = parse_result(&mut p, "123x");
 /// // fails
 /// # assert_eq!(r.is_err(), true);
 /// # Ok::<(), String>(())
@@ -230,16 +230,16 @@ pub fn eof(input: &str) -> Result<()> {
 /// # Examples
 /// ```rust
 /// # use omnomnomicon::prelude::*;
-/// let p = literal("help");
-/// let r = parse_result(&p, "help")?;
+/// let mut p = literal("help");
+/// let r = parse_result(&mut p, "help")?;
 /// // "help"
 /// # assert_eq!(r, "help");
-/// let r = parse_result(&p, "not help").is_err();
+/// let r = parse_result(&mut p, "not help").is_err();
 /// // fails to parse
 /// # assert_eq!(r, true);
 /// # Ok::<(), String>(())
 /// ```
-pub fn literal(pattern: &'static str) -> impl Fn(&'_ str) -> Result<'_, &'static str> {
+pub fn literal(pattern: &'static str) -> impl FnMut(&'_ str) -> Result<'_, &'static str> {
     use crate::utils::*;
     move |input| match check_prefix(pattern, input) {
         PrefixCheck::Match => Ok((Output::disabled(&input[pattern.len()..]), pattern)),
@@ -311,7 +311,7 @@ pub fn hliteral(pattern: &'static str) -> impl Fn(&str) -> Result<&'static str> 
 /// # assert_eq!(r, false);
 /// # Ok::<(), String>(())
 /// ```
-pub fn tag<V>(value: V, pattern: &'static str) -> impl Fn(&'_ str) -> Result<'_, V>
+pub fn tag<V>(value: V, pattern: &'static str) -> impl FnMut(&'_ str) -> Result<'_, V>
 where
     V: Clone,
 {
@@ -334,7 +334,7 @@ where
 /// # assert_eq!(r, false);
 /// # Ok::<(), String>(())
 /// ```
-pub fn htag<V>(value: V, pattern: &'static str) -> impl Fn(&str) -> Result<V>
+pub fn htag<V>(value: V, pattern: &'static str) -> impl FnMut(&str) -> Result<V>
 where
     V: Clone,
 {
@@ -348,19 +348,21 @@ where
 /// # Examples
 /// ```rust
 /// # use omnomnomicon::prelude::*;
-/// let p = or(literal("banana"), literal("potato"));
-/// let ph = hide(&p);
+/// let mut p = or(literal("banana"), literal("potato"));
 ///
 /// let r = p("ban");
 /// // fails, suggests to type "banana"
+///
+/// let mut ph = hide(p);
+///
 ///
 /// let r = ph("ban");
 /// // fails without suggesting to type anything
 /// # Ok::<(), String>(())
 /// ```
-pub fn hide<P, R>(parser: P) -> impl Fn(&str) -> Result<R>
+pub fn hide<P, R>(parser: P) -> impl FnMut(&str) -> Result<R>
 where
-    P: Fn(&str) -> Result<R>,
+    P: FnMut(&str) -> Result<R>,
 {
     crate::decorators::map_info(parser, |state| *state = State::disabled())
 }
@@ -400,12 +402,12 @@ pub fn squote(input: &str) -> Result<()> {
 /// # Examples
 /// ```rust
 /// # use omnomnomicon::prelude::*;
-/// let p = guard(|c| c.is_ascii_digit(), anychar);
-/// let r = parse_result(&p, "1")?;
+/// let mut p = guard(|c| c.is_ascii_digit(), anychar);
+/// let r = parse_result(&mut p, "1")?;
 /// // 1
 /// assert_eq!(r, '1');
 ///
-/// let r = parse_result(&p, "x").is_err();
+/// let r = parse_result(&mut p, "x").is_err();
 /// // fails to parse
 /// # assert_eq!(r, true);
 /// # Ok::<(), String>(())
@@ -586,7 +588,7 @@ where
 /// # assert_eq!(r, 'x');
 /// # Ok::<(), String>(())
 /// ```
-pub fn char(value: char) -> impl Fn(&str) -> Result<char> {
+pub fn char(value: char) -> impl FnMut(&str) -> Result<char> {
     guard(move |c| *c == value, anychar)
 }
 

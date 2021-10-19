@@ -34,7 +34,7 @@ pub fn parse_ext(input: &str) -> Result<CommandExt> {
     ))(input)
 }
 
-pub fn iv_cmd(config: &'_ Config) -> impl Fn(&str) -> Result<CommandExt> + '_ {
+pub fn iv_cmd(config: &'_ Config) -> impl FnMut(&str) -> Result<CommandExt> + '_ {
     fmap(CommandExt::Iv, updater_for(config, "iv"))
 }
 

@@ -3,7 +3,7 @@ use crate::Result;
 /// Helper trait for [`tuple`][tuple()] combinator
 pub trait Tuple<R> {
     /// see [`tuple`][tuple()]
-    fn tuple<'a>(&self, input: &'a str) -> Result<'a, R>;
+    fn tuple<'a>(&mut self, input: &'a str) -> Result<'a, R>;
 }
 
 /// Apply parsers sequentially
@@ -17,13 +17,13 @@ pub trait Tuple<R> {
 /// # use omnomnomicon::prelude::*;
 /// let p1 = literal("hello");
 /// let p2 = number::<u16>;
-/// let p = tuple((p1, p2));
+/// let mut p = tuple((p1, p2));
 /// let r = parse_result(p, "hello12")?;
 /// // (hello, 12)
 /// # assert_eq!(r, ("hello", 12));
 /// # Ok::<(), String>(())
 /// ```
-pub fn tuple<P, R>(parsers: P) -> impl Fn(&str) -> Result<R>
+pub fn tuple<P, R>(mut parsers: P) -> impl FnMut(&str) -> Result<R>
 where
     P: Tuple<R>,
 {
@@ -38,17 +38,17 @@ macro_rules! derive_tuple {
 
     (@parse_step $step:tt, $parsers:ident, $output:ident, ) => {};
     (@parse_step $step:tt, $parsers:ident, $output:ident, $next:ident $($result:ident)*) => {
-        let ($output, $next) = $output.bind(& $parsers.$step)?;
+        let ($output, $next) = $output.bind(&mut $parsers.$step)?;
         succ!($step, derive_tuple!(@parse_step, $parsers, $output, $($result)*))
     };
 
     (@mk_impl $($parser:ident $result:ident),+) => {
         impl<$($parser, $result),+> Tuple<($($result),+)> for ($($parser),+)
         where
-            $($parser: Fn(&str) -> Result<$result>),+
+            $($parser: FnMut(&str) -> Result<$result>),+
         {
                         #[allow(non_snake_case)]
-            fn tuple<'a>(&self, input: &'a str) -> Result<'a, ($($result),+)> {
+            fn tuple<'a>(&mut self, input: &'a str) -> Result<'a, ($($result),+)> {
                 derive_tuple!(@parse_step 0, self, input, $($result)+);
                 Ok((input, ($($result),+)))
             }
@@ -67,7 +67,7 @@ derive_tuple!(P1 R1, P2 R2, P3 R3, P4 R4, P5 R5, P6 R6, P7 R7, P8 R8, P9 R9, P10
 /// Helper trait for [`words`] combinator
 pub trait Words<R> {
     /// See [`words`]
-    fn words<'a>(&self, input: &'a str) -> Result<'a, R>;
+    fn words<'a>(&mut self, input: &'a str) -> Result<'a, R>;
 }
 
 /// Parse several space separated items
@@ -103,7 +103,7 @@ pub trait Words<R> {
 /// # assert_eq!(r, true);
 /// # Ok::<(), String>(())
 /// ```
-pub fn words<P, R>(parsers: P) -> impl Fn(&str) -> Result<R>
+pub fn words<P, R>(mut parsers: P) -> impl FnMut(&str) -> Result<R>
 where
     P: Words<R>,
 {
@@ -121,7 +121,7 @@ macro_rules! derive_words {
     (@parse_step $step:tt, $parsers:ident, $output:ident, $consumed:ident, ) => {let _ = $consumed; };
     (@parse_step $step:tt, $parsers:ident, $output:ident, $consumed:ident, $next:ident $($result:ident)*) => {
         let input_len = $output.input.len();
-        let ($output, $next) = $output.bind_space( $consumed, & $parsers.$step)?;
+        let ($output, $next) = $output.bind_space( $consumed, &mut $parsers.$step)?;
         $consumed |= input_len > $output.input.len();
         succ!($step, derive_words!(@parse_step, $parsers, $output, $consumed, $($result)*))
     };
@@ -129,10 +129,10 @@ macro_rules! derive_words {
     (@mk_impl $($parser:ident $result:ident),+) => {
         impl<$($parser, $result),+> Words<($($result),+)> for ($($parser),+)
         where
-            $($parser: Fn(&str) -> Result<$result>),+
+            $($parser: FnMut(&str) -> Result<$result>),+
         {
             #[allow(non_snake_case)]
-            fn words<'a>(&self, input: &'a str) -> Result<'a, ($($result),+)> {
+            fn words<'a>(&mut self, input: &'a str) -> Result<'a, ($($result),+)> {
                 derive_words!(@parse_step 0, self, input, $($result)+);
                 Ok((input, ($($result),+)))
             }
@@ -157,18 +157,18 @@ mod test {
         let p2 = label("p2", literal("p2"));
         let p3 = label("p3", literal("p3"));
 
-        let p = words((p1, option(p2), p3));
-        let r = parse_hints(&p, "p1").unwrap().replacements();
+        let mut p = words((p1, option(p2), p3));
+        let r = parse_hints(&mut p, "p1").unwrap().replacements();
         assert_eq!(r, &[" "]);
     }
 
     #[test]
     fn test_snd_word() {
         let p = snd_word(literal("mask"), number::<u32>);
-        let p = fmap(|_| (), p);
-        let r = parse_hints(&p, "").unwrap().replacements();
+        let mut p = fmap(|_| (), p);
+        let r = parse_hints(&mut p, "").unwrap().replacements();
         assert_eq!(r, &["mask"]);
-        let r = parse_hints(&p, "ma").unwrap().replacements();
+        let r = parse_hints(&mut p, "ma").unwrap().replacements();
         assert_eq!(r, &["mask"]);
     }
 }
