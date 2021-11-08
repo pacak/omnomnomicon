@@ -1,4 +1,8 @@
-use std::{borrow::Cow, sync::MutexGuard};
+use std::{
+    borrow::Cow,
+    ops::Deref,
+    sync::{Arc, Mutex, MutexGuard},
+};
 
 use omnomnomicon::{frontend::rustyline::*, prelude::*, tutorial::*};
 use rustyline::{
@@ -8,7 +12,8 @@ use rustyline::{
 
 #[derive(Debug, Clone)]
 struct H {
-    cache: RustylineCache,
+    parsed_key: String,
+    parsed_value: Option<ParseOutcome>,
 }
 
 impl H {
@@ -17,17 +22,25 @@ impl H {
     }
 
     fn new() -> Self {
+        let parsed_key = "".to_owned();
+        let parsed_value = apply_parser_rec(parse_command, &parsed_key);
         Self {
-            cache: RustylineCache::default(),
+            parsed_key,
+            parsed_value,
         }
     }
 
-    fn cached(&self, input: &str) -> MutexGuard<'_, Option<ParseOutcome>> {
-        self.cache.get(input, Self::parse)
+    fn cached(&mut self, input: &str) -> Option<&ParseOutcome> {
+        if self.parsed_key == input {
+            return self.parsed_value.as_ref();
+        }
+        self.parsed_key = input.to_owned();
+        self.parsed_value = apply_parser_rec(parse_command, input);
+        self.parsed_value.as_ref()
     }
 }
 
-impl Completer for H {
+impl Completer for M {
     type Candidate = Comp;
 
     fn complete(
@@ -37,11 +50,11 @@ impl Completer for H {
         _ctx: &rustyline::Context<'_>,
     ) -> rustyline::Result<(usize, Vec<Self::Candidate>)> {
         let input = &line[..pos];
-        Ok(get_completion(input, self.cached(input).as_ref()))
+        Ok(get_completion(input, self.0.lock().unwrap().cached(input)))
     }
 }
 
-impl ConditionalEventHandler for H {
+impl ConditionalEventHandler for M {
     fn handle(
         &self,
         evt: &Event,
@@ -50,15 +63,15 @@ impl ConditionalEventHandler for H {
         ctx: &rustyline::EventContext,
     ) -> Option<rustyline::Cmd> {
         let input = &ctx.line()[..ctx.pos()];
-        get_event_filter(evt, self.cached(&input).as_ref()?)
+        get_event_filter(evt, self.0.lock().unwrap().cached(&input).as_ref()?)
     }
 }
 
-impl Helper for H {}
-impl Validator for H {}
-impl Highlighter for H {
+impl Helper for M {}
+impl Validator for M {}
+impl Highlighter for M {
     fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
-        match self.cache.peek().as_ref() {
+        match self.0.lock().unwrap().parsed_value.as_ref() {
             Some(res) => {
                 let r = render_outcome(&res, true);
                 Cow::from(r.display)
@@ -68,30 +81,39 @@ impl Highlighter for H {
     }
 
     fn highlight<'l>(&self, line: &'l str, _pos: usize) -> Cow<'l, str> {
-        match self.cache.peek().as_ref() {
+        match self.0.lock().unwrap().parsed_value.as_ref() {
             Some(ParseOutcome::Failure(x)) => Cow::from(colorize_fail(x, line)),
             _ => Cow::from(line),
         }
     }
 }
 
-impl Hinter for H {
+impl Hinter for M {
     type Hint = RustyHint;
     fn hint(&self, line: &str, pos: usize, _ctx: &rustyline::Context<'_>) -> Option<Self::Hint> {
         let input = &line[..pos];
-        Some(render_outcome(self.cached(input).as_ref()?, false))
+        Some(render_outcome(
+            self.0.lock().unwrap().cached(input).as_ref()?,
+            false,
+        ))
     }
 }
+
+#[derive(Clone)]
+struct M(Arc<Mutex<H>>);
 
 fn main() {
     let cfg = rustyline::Config::builder()
         .completion_type(CompletionType::Circular)
         .build();
 
-    let h = H::new();
-    let mut rl = rustyline::Editor::<H>::with_config(cfg);
-    rl.set_helper(Some(h.clone()));
-    rl.bind_sequence(Event::Any, EventHandler::Conditional(Box::new(h.clone())));
+    let helper = M(Arc::from(Mutex::from(H::new())));
+    let mut rl = rustyline::Editor::<M>::with_config(cfg);
+    rl.set_helper(Some(helper.clone()));
+    rl.bind_sequence(
+        Event::Any,
+        EventHandler::Conditional(Box::new(helper.clone())),
+    );
     while let Ok(line) = rl.readline(">> ") {
         let parsed = H::parse(&line);
         println!("{:?}", parsed);
