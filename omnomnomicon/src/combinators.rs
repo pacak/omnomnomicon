@@ -2,14 +2,14 @@
 //!
 //! Functions in this module take existing parsers as arguments and create new parsers.
 //!
-//! To use the same parser several times you can use references:
+//! To use the same parser several times you can use muatble references:
 //!
 //! This fails:
 //! ```compile_fail
 //! # use omnomnomicon::prelude::*;
-//! let mut hello = literal("hello ");
-//! let p1 = pair(&mut hello, literal("world"));
-//! let p2 = pair(&mut hello, literal("omnomnomicon"));
+//! let hello = literal("hello ");
+//! let p1 = pair(hello, literal("world"));
+//! let p2 = pair(hello, literal("omnomnomicon"));
 //! let both = or(p1, p2);
 //!
 //! # Ok::<(), String>(())
