@@ -13,8 +13,6 @@ give a helper to produce a single completion: "next-"
 
 # feature gate debugging info printing when generating parse result for rustyline
 
-# doc, switch to [Foo] to [`Foo`]
-
 # indication for "help available"
 
 # optional derive?

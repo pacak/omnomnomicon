@@ -50,7 +50,7 @@ where
 /// This trait creates interactive update menu for a struct
 /// See [`updater_for`] for examples
 pub trait Updater {
-    /// A separate type containing changes to one of the fields in `Self` such that [Updater::apply] properties hold.
+    /// A separate type containing changes to one of the fields in `Self` such that [`Updater::apply`] properties hold.
     ///
     /// For example for a pair of `i32` `type Foo = (i32, i32)` an `Updater` is a `(bool, i32)`,
     /// where `bool` indicates if the `i32` value should replace the value in the first or the second
@@ -63,7 +63,7 @@ pub trait Updater {
     /// parse `entry` as [`literal`] from a string and ignore it's value
     fn enter<'a>(&self, entry: &'static str, input: &'a str) -> Result<'a, Self::Updater>;
 
-    /// Apply changes from [Self::Updater] to a current value
+    /// Apply changes from [`Self::Updater`] to a current value
     fn apply(&mut self, updater: Self::Updater);
 }
 

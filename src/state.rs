@@ -209,7 +209,7 @@ impl Add<State> for Output<'_> {
 /// make it pass `State` will ignore any decorations. This state can be crated with
 /// [`State::disabled()`]
 ///
-/// Forms a monoid with [State::disabled()] and [`Add`] trait.
+/// Forms a monoid with [`State::disabled()`] and [`Add`] trait.
 ///
 /// # Examples
 /// ```rust
