@@ -244,9 +244,9 @@ where
 ///
 /// # Ok::<(), String>(())
 /// ```
-pub fn peek<F, R>(mut parser: F) -> impl FnMut(&str) -> Result<R>
+pub fn peek<P, R>(mut parser: P) -> impl FnMut(&str) -> Result<R>
 where
-    F: FnMut(&str) -> Result<R>,
+    P: FnMut(&str) -> Result<R>,
 {
     move |input| {
         let res = parser(input)?;
@@ -272,10 +272,10 @@ where
 /// # assert!(r);
 /// # Ok::<(), String>(())
 /// ```
-pub fn pair<F1, F2, R1, R2>(mut first: F1, mut second: F2) -> impl FnMut(&str) -> Result<(R1, R2)>
+pub fn pair<P1, P2, R1, R2>(mut first: P1, mut second: P2) -> impl FnMut(&str) -> Result<(R1, R2)>
 where
-    F1: FnMut(&str) -> Result<R1>,
-    F2: FnMut(&str) -> Result<R2>,
+    P1: FnMut(&str) -> Result<R1>,
+    P2: FnMut(&str) -> Result<R2>,
 {
     move |input| {
         let (output, r1) = first(input)?;
@@ -347,9 +347,9 @@ fn pwords_preserve_partial_match_info() {
 /// # Panics
 /// With `sanity` feature enabled this parser will panic if subparser
 /// returns a result without consuming any input.
-pub fn many<F, R>(mut parser: F) -> impl FnMut(&str) -> Result<Vec<R>>
+pub fn many<P, R>(mut parser: P) -> impl FnMut(&str) -> Result<Vec<R>>
 where
-    F: FnMut(&str) -> Result<R>,
+    P: FnMut(&str) -> Result<R>,
 {
     move |mut input| {
         let mut res = Vec::new();

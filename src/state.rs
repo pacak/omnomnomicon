@@ -88,9 +88,9 @@ impl<'a> Output<'a> {
     /// # Ok::<(), Terminate>(())
     /// ```
     #[inline]
-    pub fn bind<F, R>(self, mut parser: F) -> Result<'a, R>
+    pub fn bind<P, R>(self, mut parser: P) -> Result<'a, R>
     where
-        F: FnMut(&str) -> Result<R>,
+        P: FnMut(&str) -> Result<R>,
     {
         match parser(self.input) {
             Ok((output, r)) => Ok((output + self.state, r)),
@@ -104,9 +104,9 @@ impl<'a> Output<'a> {
     /// Outer edges are considered as non consuming
     /// Space is consumed by the right consuming entry
 
-    pub fn bind_space<F, R>(self, consumed: bool, mut parser: F) -> Result<'a, R>
+    pub fn bind_space<P, R>(self, consumed: bool, mut parser: P) -> Result<'a, R>
     where
-        F: FnMut(&str) -> Result<R>,
+        P: FnMut(&str) -> Result<R>,
     {
         //
         fn try_trimmed<P, R>(mut parser: P, input: &str) -> Result<R>

@@ -107,9 +107,9 @@ pub enum ParseOutcome {
 /// # }
 /// # Ok::<(), String>(())
 /// ```
-pub fn apply_parser<F, R>(mut parser: F, input: &str) -> Option<ParseOutcome>
+pub fn apply_parser<P, R>(mut parser: P, input: &str) -> Option<ParseOutcome>
 where
-    F: FnMut(&str) -> Result<R>,
+    P: FnMut(&str) -> Result<R>,
 {
     let info = match parser(input) {
         Ok((output, _)) if !output.state.is_enabled() => return None,

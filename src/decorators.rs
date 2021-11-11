@@ -102,9 +102,9 @@ use std::borrow::Cow;
 use crate::*;
 
 /// Apply arbitrary transformation to [`State`] in [`Result`] if present
-pub fn map_info<F, R, M>(mut parser: F, mut map: M) -> impl FnMut(&str) -> Result<R>
+pub fn map_info<P, R, M>(mut parser: P, mut map: M) -> impl FnMut(&str) -> Result<R>
 where
-    F: FnMut(&str) -> Result<R>,
+    P: FnMut(&str) -> Result<R>,
     M: FnMut(&mut State),
 {
     move |input| {
@@ -122,9 +122,9 @@ where
 /// Apply arbitrary transformation to [`State`] in [`Result`] if present
 ///
 /// In addition to a reference to [`State`] transformation function takes current input
-pub fn map_info_with<F, R, M>(parser: F, map: M) -> impl Fn(&str) -> Result<R>
+pub fn map_info_with<P, R, M>(parser: P, map: M) -> impl Fn(&str) -> Result<R>
 where
-    F: Fn(&str) -> Result<R>,
+    P: Fn(&str) -> Result<R>,
     M: Fn(&str, &mut State),
 {
     move |input| {
@@ -151,9 +151,9 @@ where
 /// # assert_eq!(r, &["price"]);
 /// # Ok::<(), String>(())
 /// ```
-pub fn label<F, R>(label: &'static str, parser: F) -> impl FnMut(&str) -> Result<R>
+pub fn label<P, R>(label: &'static str, parser: P) -> impl FnMut(&str) -> Result<R>
 where
-    F: FnMut(&str) -> Result<R>,
+    P: FnMut(&str) -> Result<R>,
 {
     map_info(parser, move |state| state.push_label(label))
 }
@@ -229,10 +229,10 @@ where
 
 /// Adds a dynamic hint label for parser F
 ///
-pub fn with_label<F, L, R>(mut label_fn: L, parser: F) -> impl FnMut(&str) -> Result<R>
+pub fn with_label<P, L, R>(mut label_fn: L, parser: P) -> impl FnMut(&str) -> Result<R>
 where
     L: FnMut() -> Option<Cow<'static, str>>,
-    F: FnMut(&str) -> Result<R>,
+    P: FnMut(&str) -> Result<R>,
 {
     map_info(parser, move |state| {
         if let Some(msg) = label_fn() {
@@ -242,18 +242,18 @@ where
 }
 
 /// remove labels from the parser
-pub fn unlabel<F, R>(parser: F) -> impl FnMut(&str) -> Result<R>
+pub fn unlabel<P, R>(parser: P) -> impl FnMut(&str) -> Result<R>
 where
-    F: FnMut(&str) -> Result<R>,
+    P: FnMut(&str) -> Result<R>,
 {
     map_info(parser, move |state| state.wipe_labels())
 }
 
 /// Insert completion info from a function
-pub fn complete<F, R, P, I>(completer: P, parser: F) -> impl Fn(&str) -> Result<R>
+pub fn complete<P, R, C, I>(completer: C, parser: P) -> impl Fn(&str) -> Result<R>
 where
-    F: Fn(&str) -> Result<R>,
-    P: Fn(&str) -> I,
+    P: Fn(&str) -> Result<R>,
+    C: Fn(&str) -> I,
     I: IntoIterator<Item = Comp>,
 {
     map_info_with(parser, move |input, info| {
@@ -264,9 +264,9 @@ where
 }
 
 /// Add a help message to a parser
-pub fn help<F, R>(message: &'static str, mut parser: F) -> impl FnMut(&str) -> Result<R>
+pub fn help<P, R>(message: &'static str, mut parser: P) -> impl FnMut(&str) -> Result<R>
 where
-    F: FnMut(&str) -> Result<R>,
+    P: FnMut(&str) -> Result<R>,
 {
     move |input| match parser(input) {
         Err(Terminate::Failure(failure)) => {
@@ -286,37 +286,6 @@ where
     }
 }
 
-/// Add a help message to a parser
-pub fn optional_help<F, R>(
-    message: Option<&'static str>,
-    mut parser: F,
-) -> impl FnMut(&str) -> Result<R>
-where
-    F: FnMut(&str) -> Result<R>,
-{
-    move |input| {
-        let err = match parser(input) {
-            Err(err) => err,
-            ok => return ok,
-        };
-        let message = match message {
-            Some(msg) => msg,
-            None => return Err(err),
-        };
-        match &err {
-            Terminate::Failure(failure) => {
-                if failure.consumed_from(input) {
-                    let help = Info::Help(message);
-                    Err(Terminate::from(help))
-                } else {
-                    Err(err)
-                }
-            }
-            Terminate::Eof(_) => Err(err),
-        }
-    }
-}
-
 /// Observe successfuly parsed value
 ///
 /// A specialized version of [`fmap`][crate::combinators::fmap], but instaead of saving results - result is ignored
@@ -333,9 +302,9 @@ where
 }
 
 /// Change parser to accept only digits of arbitrary length
-pub fn mask_digits<R, F>(parser: F) -> impl FnMut(&str) -> Result<R>
+pub fn mask_digits<R, P>(parser: P) -> impl FnMut(&str) -> Result<R>
 where
-    F: FnMut(&str) -> Result<R>,
+    P: FnMut(&str) -> Result<R>,
 {
     map_info(parser, |info| {
         info.items.push(('0'..='9').into());
@@ -348,9 +317,9 @@ where
 ///
 /// Since entering spaces is not allowed - `parser` must terminate on it's own after
 /// consuming a certain amount of digits.
-pub fn mask_digits_exact<R, F>(parser: F) -> impl FnMut(&str) -> Result<R>
+pub fn mask_digits_exact<R, P>(parser: P) -> impl FnMut(&str) -> Result<R>
 where
-    F: FnMut(&str) -> Result<R>,
+    P: FnMut(&str) -> Result<R>,
 {
     map_info(parser, |info| {
         info.items.push(('0'..='9').into());

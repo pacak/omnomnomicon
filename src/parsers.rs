@@ -170,10 +170,10 @@ where
 }
 
 /// Runs nested parser, fails if either nested parser fails or predicate on the output fails
-pub fn guard<P, F, R>(mut predicate: P, mut parser: F) -> impl FnMut(&str) -> Result<R>
+pub fn guard<G, P, R>(mut predicate: G, mut parser: P) -> impl FnMut(&str) -> Result<R>
 where
-    P: FnMut(&R) -> bool,
-    F: FnMut(&str) -> Result<R>,
+    G: FnMut(&R) -> bool,
+    P: FnMut(&str) -> Result<R>,
 {
     move |input| {
         let (output, r) = parser(input)?;
