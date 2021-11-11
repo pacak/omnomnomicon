@@ -17,3 +17,5 @@ give a helper to produce a single completion: "next-"
 
 # document &mut in all the tests
 it's in combinators.rs module docs
+
+# document deriving macro
