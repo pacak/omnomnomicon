@@ -5,7 +5,7 @@
 
 //! # Purpose
 //! Omnomnomicon is a parser combinator library. Main goals are:
-//! - working interactive user input
+//! - working with interactive user input
 //! - hints and labels based on current input
 //! - automatic and manual autocompletion
 //! - in-prompt-help and error messages
@@ -126,7 +126,6 @@ lexical!(u64);
 lexical!(u128);
 lexical!(usize);
 
-use std::convert::TryFrom;
 macro_rules! nonzero {
     ($base:ty, $nz:ty) => {
         /// Parses a nonzero number, parser fails if number overflows or is zero

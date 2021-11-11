@@ -1,10 +1,10 @@
 use honggfuzz::fuzz;
-use omnomnomicon_tests::parse_ext;
+use omnomnomicon::tutorial::parse_command;
 
 fn main() {
     loop {
         fuzz!(|data: &str| {
-            parse_ext(data);
+            parse_command(data);
         });
     }
 }

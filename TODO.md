@@ -21,5 +21,7 @@ give a helper to produce a single completion: "next-"
 
 # remove optional_help
 
+# optional derive?
+
 # document &mut in all the tests
 it's in combinators.rs module docs

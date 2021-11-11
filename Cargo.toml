@@ -6,13 +6,19 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ansi_term = { version = "0.12", optional = true }
-rustyline = { version = "9.0", default-features = false, optional = true }
-enum-map = { version = "1.1", default-features = false, optional = true }
-chrono = { version = "0.4", optional = true }
+
+# actually used:
 lexical-core = { version = "0.8", default-features = false, features=["std", "parse-integers", "parse-floats"] }
 smallvec = { version = "1.6", features=["union"] }
+
 omnomnomicon_derive = { path = "./omnomnomicon_derive" }
+
+ansi_term = { version = "0.12", optional = true }
+rustyline = { version = "9.0", default-features = false, optional = true }
+
+# for instances and tests
+enum-map = { version = "1.1", default-features = false, optional = true }
+chrono = { version = "0.4", optional = true }
 
 [dev-dependencies]
 omnomnomicon = { path = ".", features=["all"] }
@@ -35,3 +41,9 @@ members = [
     "omnomnomicon_derive",
     "fuzz",
 ]
+
+
+
+
+[package.metadata.docs.rs]
+features = ["all"]

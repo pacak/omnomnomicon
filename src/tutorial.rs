@@ -84,12 +84,17 @@
 //!
 
 use crate::prelude::*;
+use chrono::NaiveDateTime;
+use enum_map::{enum_map, Enum, EnumMap};
 
 #[derive(Debug, Clone)]
 pub enum Command {
     Place(Direction, Option<Item>, u32, Option<u32>),
     Dictionary(usize, u32),
     Sequence,
+    Iv(<Config as Updater>::Updater),
+    Date(NaiveDateTime),
+    Action(Action),
 }
 
 /// Entry point that picks first succeeding parser
@@ -113,6 +118,23 @@ pub fn parse_command(input: &str) -> Result<Command> {
         dictionary_cmd(dict),
         sequence_cmd,
         mask_cmd,
+        iv_cmd(&Config {
+            price: 10,
+            boosting: Some(123),
+            target: 10,
+            limits: Limits {
+                high: 10,
+                low: 10,
+                mystery: (),
+            },
+            enum_map: enum_map! {
+                Key::Bar => 10u32,
+                Key::Baz => 10u32,
+            },
+            coefficients: [1, 2, 3, 4, 5],
+        }),
+        fmap(Command::Date, tagged("date", NaiveDateTime::parse)),
+        fmap(Command::Action, tagged("action", Action::parse)),
     ))(input)
 }
 
@@ -307,4 +329,106 @@ pub fn dir(input: &str) -> Result<Direction> {
     let bid = constmap(Direction::Bid, literal("bid"));
     let ask = constmap(Direction::Ask, literal("ask"));
     label("dir", or(bid, ask))(input)
+}
+
+/// updater for config - this generates a menu starting at "iv"
+///
+/// `updater_for` takes current value to use for "current value" hints.
+pub fn iv_cmd(config: &'_ Config) -> impl FnMut(&str) -> Result<Command> + '_ {
+    fmap(Command::Iv, updater_for(config, "iv"))
+}
+
+impl Default for Limits {
+    fn default() -> Self {
+        Self {
+            mystery: (),
+            low: 10,
+            high: 100,
+        }
+    }
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            price: 50,
+            target: 150,
+            limits: Limits::default(),
+            boosting: None,
+            coefficients: [10, 20, 30, 40, 50],
+            enum_map: enum_map! {
+                Key::Bar => 10u32,
+                Key::Baz => 10u32,
+            },
+        }
+    }
+}
+
+/// top level structure, most of the fields are accessible directly, nested fields are accessible
+/// via `.`.
+///
+/// doc comments are accessible via `?`
+///
+#[derive(Debug, Clone, Updater)]
+pub struct Config {
+    /// Price...
+    pub price: u32,
+    pub target: u32,
+    pub limits: Limits,
+    pub boosting: Option<u32>,
+    /// A set of magical coefficients
+    pub coefficients: [u32; 5],
+    pub enum_map: EnumMap<Key, u32>,
+}
+
+/// Nested
+#[derive(Updater, Debug, Clone)]
+pub struct Limits {
+    /// This field will be skipped from parser things
+    #[om(skip)]
+    pub mystery: (),
+
+    /// Low limit for something important
+    ///
+    /// Software will try to keep a value of something important above that limit
+    pub low: u32,
+
+    /// High limit for something important
+    ///
+    /// Software will try to keep a value of something important below that limit
+    pub high: u32,
+}
+
+/// enummaps can be derived into parsers but not into updaters
+///
+#[derive(Debug, Clone, Copy, Parser)]
+pub enum Action {
+    /// Update the fitmeasure
+    #[om(literal("fit_measure"))]
+    Fitmeasure,
+    /// Fit the stretch
+    FitStretch,
+    /// Fit the shape
+    #[om(skip)]
+    FitShape,
+    /// Perform mystery operation
+    Mystery(Mystery),
+    /// Perform magical operation
+    Magical(Magical),
+}
+
+#[derive(Debug, Enum, Copy, Clone)]
+pub enum Key {
+    Bar,
+    Baz,
+}
+
+#[derive(Debug, Copy, Clone, Parser)]
+/// Performs a mystery transformation, should be an odd number
+pub struct Mystery(pub u32);
+
+#[derive(Debug, Copy, Clone, Parser)]
+/// Performs a mystery transformation, should be an even number
+pub struct Magical {
+    pub value: u32,
 }

@@ -114,7 +114,7 @@ fn bench_updater_enum(c: &mut Criterion) {
         Key::Bar => 10u32,
         Key::Baz => 10u32,
     };
-    let input = "iv baz 50";
+    let input = "iv Baz 50";
     c.bench_function("updater via enum", |b| {
         b.iter(|| {
             let p = updater_for(&foo, "iv");
@@ -154,7 +154,7 @@ fn bench_typing(c: &mut Criterion) {
     c.bench_function("typing", |b| {
         b.iter(|| {
             for i in black_box(input) {
-                let _r = omnomnomicon_tests::parse_ext(i);
+                let _r = omnomnomicon::tutorial::parse_command(i);
             }
         })
     });
