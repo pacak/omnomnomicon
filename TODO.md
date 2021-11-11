@@ -11,8 +11,6 @@ given
     next-matching-make
 give a helper to produce a single completion: "next-"
 
-# feature gate debugging info printing when generating parse result for rustyline
-
 # indication for "help available"
 
 # optional derive?
