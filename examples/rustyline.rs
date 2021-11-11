@@ -1,7 +1,6 @@
 use std::{
     borrow::Cow,
-    ops::Deref,
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{Arc, Mutex},
 };
 
 use omnomnomicon::{frontend::rustyline::*, prelude::*, tutorial::*};

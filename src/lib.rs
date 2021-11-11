@@ -33,6 +33,8 @@
 #[macro_use]
 mod macros;
 
+extern crate self as omnomnomicon;
+
 #[cfg(feature = "chrono")]
 pub mod chrono;
 pub mod combinators;
