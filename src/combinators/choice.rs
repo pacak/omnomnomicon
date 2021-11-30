@@ -41,10 +41,10 @@ macro_rules! derive_choice {
     (@mk_impl $fparser:ident $($parser:ident)+) => {
         impl<$fparser, $($parser),+, R> Choice<R> for ($fparser, $($parser),+)
         where
-            $fparser: FnMut(&str) -> Result<R>,
-            $( $parser: FnMut(&str) -> Result<R>),+
+            $fparser: for <'a> FnMut(&'a str) -> Result<'a, R>,
+            $( $parser: for <'a> FnMut(&'a str) -> Result<'a, R>),+
         {
-            fn choice<'a>(&mut self, input: &'a str) -> Result<'a, R> {
+            fn choice<'s>(&mut self, input: &'s str) -> Result<'s, R> {
                 let mut term = match self.0(input) {
                     Err(err) => err,
                     ok => return ok,

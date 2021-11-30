@@ -1,5 +1,5 @@
 /target
 /omnomnomicon_derive/target
-/hfuzz_target
-/hfuzz_workspace
+/fuzz/hfuzz_target
+/fuzz/hfuzz_workspace
 Cargo.lock

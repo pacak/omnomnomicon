@@ -88,6 +88,8 @@ pub enum ParseOutcome {
 /// Only useful to extract information about parsing. [`ParseOutcome`] represents
 /// parsing failure and completion hints.
 ///
+/// `None` means parser produced some output without any additional information.
+///
 /// See also [`apply_parser_rec`].
 /// # Examples
 /// ```rust

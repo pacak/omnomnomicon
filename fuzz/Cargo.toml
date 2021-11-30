@@ -24,7 +24,7 @@ harness = false
 
 [[bin]]
 name = "fuzz"
-path = "bin/fuzz.rs"
+path = "src/main.rs"
 required-features = ["honggfuzz"]
 
 [[example]]
