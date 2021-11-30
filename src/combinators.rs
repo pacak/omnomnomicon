@@ -446,9 +446,9 @@ where
 ///
 /// # Ok::<(), String>(())
 /// ```
-pub fn parse_with<F, P, A, B, E>(external: F, parser: P) -> impl Fn(&str) -> Result<B>
+pub fn parse_with<F, P, A, B, E>(external: F, mut parser: P) -> impl FnMut(&str) -> Result<B>
 where
-    P: for<'s> Fn(&'s str) -> Result<'s, A>,
+    P: for<'s> FnMut(&'s str) -> Result<'s, A>,
     F: Fn(A) -> core::result::Result<B, E>,
     E: std::fmt::Display,
 {
