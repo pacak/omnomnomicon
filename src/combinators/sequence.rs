@@ -103,7 +103,7 @@ pub trait Words<R> {
 /// # assert_eq!(r, true);
 /// # Ok::<(), String>(())
 /// ```
-pub fn words<P, R>(mut parsers: P) -> impl FnMut(&str) -> Result<R>
+pub fn words<P, R>(mut parsers: P) -> impl for<'s> FnMut(&'s str) -> Result<'s, R>
 where
     P: Words<R>,
 {
