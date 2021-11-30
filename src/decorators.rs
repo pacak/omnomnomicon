@@ -122,9 +122,9 @@ where
 /// Apply arbitrary transformation to [`State`] in [`Result`] if present
 ///
 /// In addition to a reference to [`State`] transformation function takes current input
-pub fn map_info_with<P, R, M>(parser: P, map: M) -> impl Fn(&str) -> Result<R>
+pub fn map_info_with<P, R, M>(mut parser: P, map: M) -> impl FnMut(&str) -> Result<R>
 where
-    P: Fn(&str) -> Result<R>,
+    P: for<'s> FnMut(&'s str) -> Result<'s, R>,
     M: Fn(&str, &mut State),
 {
     move |input| {
@@ -250,9 +250,9 @@ where
 }
 
 /// Insert completion info from a function
-pub fn complete<P, R, C, I>(completer: C, parser: P) -> impl Fn(&str) -> Result<R>
+pub fn complete<P, R, C, I>(completer: C, parser: P) -> impl for<'s> FnMut(&'s str) -> Result<'s, R>
 where
-    P: Fn(&str) -> Result<R>,
+    P: for<'s> FnMut(&'s str) -> Result<'s, R>,
     C: Fn(&str) -> I,
     I: IntoIterator<Item = Comp>,
 {
@@ -289,10 +289,10 @@ where
 /// Observe successfuly parsed value
 ///
 /// A specialized version of [`fmap`][crate::combinators::fmap], but instaead of saving results - result is ignored
-pub fn observe<F, P, A>(transform: F, parser: P) -> impl Fn(&str) -> Result<A>
+pub fn observe<F, P, A>(transform: F, mut parser: P) -> impl FnMut(&str) -> Result<A>
 where
     F: Fn(&A),
-    P: Fn(&str) -> Result<A>,
+    P: for<'s> FnMut(&'s str) -> Result<'s, A>,
 {
     move |input| {
         let (i, r) = parser(input)?;
