@@ -45,7 +45,7 @@ macro_rules! derive_tuple {
     (@mk_impl $($parser:ident $result:ident),+) => {
         impl<$($parser, $result),+> Tuple<($($result),+)> for ($($parser),+)
         where
-            $($parser: FnMut(&str) -> Result<$result>),+
+            $($parser: for<'s>FnMut(&'s str) -> Result<'s, $result>),+
         {
                         #[allow(non_snake_case)]
             fn tuple<'a>(&mut self, input: &'a str) -> Result<'a, ($($result),+)> {
@@ -129,7 +129,7 @@ macro_rules! derive_words {
     (@mk_impl $($parser:ident $result:ident),+) => {
         impl<$($parser, $result),+> Words<($($result),+)> for ($($parser),+)
         where
-            $($parser: FnMut(&str) -> Result<$result>),+
+            $($parser: for <'s> FnMut(&'s str) -> Result<'s, $result>),+
         {
             #[allow(non_snake_case)]
             fn words<'a>(&mut self, input: &'a str) -> Result<'a, ($($result),+)> {
