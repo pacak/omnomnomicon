@@ -448,7 +448,7 @@ where
 /// ```
 pub fn parse_with<F, P, A, B, E>(external: F, parser: P) -> impl Fn(&str) -> Result<B>
 where
-    P: Fn(&str) -> Result<A>,
+    P: for<'s> Fn(&'s str) -> Result<'s, A>,
     F: Fn(A) -> core::result::Result<B, E>,
     E: std::fmt::Display,
 {
