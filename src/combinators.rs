@@ -435,12 +435,12 @@ where
 ///         Ok(s)
 ///     }
 /// };
-/// let p = parse_with(external, number::<u32>);
-/// let r = parse_result(&p, "700")?;
+/// let mut p = parse_with(external, number::<u32>);
+/// let r = parse_result(&mut p, "700")?;
 /// // 700
 /// # assert_eq!(r, 700);
 ///
-/// let e = parse_result(&p, "10000").unwrap_err();
+/// let e = parse_result(&mut p, "10000").unwrap_err();
 /// // "Too big"
 /// # assert_eq!(e, "Too big");
 ///
