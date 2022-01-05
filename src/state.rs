@@ -558,7 +558,10 @@ impl From<Info> for State {
 pub struct Failure {
     /// Error message text
     pub message: Cow<'static, str>,
-    /// Length of remaining string length at which has occured
+    /// Length of the invalid part of the string (in bytes) from the end.
+    ///
+    /// In other words assuming the input string was `"Hello world"` and parser expects
+    /// `"Hello World"` then invalid part is `"world"` and offset is going to be 5.
     pub offset: usize,
 }
 
