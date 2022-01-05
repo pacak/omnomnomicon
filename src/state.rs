@@ -289,6 +289,40 @@ pub struct State {
     pub items: SmallVec<[Info; 1]>,
 }
 
+impl std::fmt::Display for State {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if !self.is_enabled() || self.items.is_empty() {
+            write!(f, "No input expected at this point")
+        } else if self.status.has_label() {
+            write!(f, "Expected one of ")?;
+            let mut sep = false;
+            for item in self.items.iter() {
+                if let Info::Label(label) = item {
+                    if sep {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "'{}'", label)?;
+                    sep = true;
+                }
+            }
+            Ok(())
+        } else {
+            write!(f, "Expected one of ")?;
+            let mut sep = false;
+            for item in self.items.iter() {
+                if let Info::Comp(comp) = item {
+                    if sep {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "'{}'", comp.replacement)?;
+                    sep = true;
+                }
+            }
+            Ok(())
+        }
+    }
+}
+
 impl State {
     #[inline]
     /// Should [`State`] be collecting information
@@ -396,6 +430,15 @@ pub enum Terminate {
 impl Default for Terminate {
     fn default() -> Self {
         Terminate::Failure(Failure::default())
+    }
+}
+
+impl std::fmt::Display for Terminate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Terminate::Eof(e) => e.fmt(f),
+            Terminate::Failure(e) => e.fmt(f),
+        }
     }
 }
 
@@ -563,6 +606,12 @@ pub struct Failure {
     /// In other words assuming the input string was `"Hello world"` and parser expects
     /// `"Hello World"` then invalid part is `"world"` and offset is going to be 5.
     pub offset: usize,
+}
+
+impl std::fmt::Display for Failure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
+    }
 }
 
 impl Failure {
