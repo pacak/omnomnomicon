@@ -25,6 +25,14 @@ pub struct Output<'a> {
 }
 
 impl<'a> Output<'a> {
+    /// Check if whole input was consumed
+    ///
+    /// When parsing a string you want to consume the whole input by the time
+    /// you done parsing
+    pub fn is_empty(&self) -> bool {
+        self.input.is_empty()
+    }
+
     /// Create `Output` with this `input` and [`State`] in collecting mode
     #[inline]
     pub fn enabled(input: &'a str) -> Self {
