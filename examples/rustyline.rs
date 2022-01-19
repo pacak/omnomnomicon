@@ -62,7 +62,7 @@ impl ConditionalEventHandler for M {
         ctx: &rustyline::EventContext,
     ) -> Option<rustyline::Cmd> {
         let input = &ctx.line()[..ctx.pos()];
-        get_event_filter(evt, self.0.lock().unwrap().cached(&input).as_ref()?)
+        get_event_filter(evt, self.0.lock().unwrap().cached(input).as_ref()?)
     }
 }
 
@@ -72,7 +72,7 @@ impl Highlighter for M {
     fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
         match self.0.lock().unwrap().parsed_value.as_ref() {
             Some(res) => {
-                let r = render_outcome(&res, true);
+                let r = render_outcome(res, true);
                 Cow::from(r.display)
             }
             None => Cow::from(hint),
@@ -109,10 +109,7 @@ fn main() {
     let helper = M(Arc::from(Mutex::from(H::new())));
     let mut rl = rustyline::Editor::<M>::with_config(cfg);
     rl.set_helper(Some(helper.clone()));
-    rl.bind_sequence(
-        Event::Any,
-        EventHandler::Conditional(Box::new(helper.clone())),
-    );
+    rl.bind_sequence(Event::Any, EventHandler::Conditional(Box::new(helper)));
     while let Ok(line) = rl.readline(">> ") {
         let parsed = H::parse(&line);
         println!("{:?}", parsed);
