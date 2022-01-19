@@ -95,6 +95,7 @@ pub enum Command {
     Iv(<Config as Updater>::Updater),
     Date(NaiveDateTime),
     Action(Action),
+    Say(String),
 }
 
 /// Entry point that picks first succeeding parser
@@ -118,6 +119,7 @@ pub fn parse_command(input: &str) -> Result<Command> {
         dictionary_cmd(dict),
         sequence_cmd,
         mask_cmd,
+        say_cmd,
         iv_cmd(&Config {
             price: 10,
             boosting: Some(123),
@@ -136,6 +138,13 @@ pub fn parse_command(input: &str) -> Result<Command> {
         fmap(Command::Date, tagged("date", NaiveDateTime::parse)),
         fmap(Command::Action, tagged("action", Action::parse)),
     ))(input)
+}
+
+pub fn say_cmd(input: &str) -> Result<Command> {
+    fmap(
+        Command::Say,
+        tagged("say", label("quoted string", String::parse)),
+    )(input)
 }
 
 /// Regular command with help, explicit input and optional elements

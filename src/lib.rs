@@ -212,3 +212,33 @@ impl Parser for std::time::Duration {
         }
     }
 }
+
+impl Parser for String {
+    /// Parse a quoted string
+    ///
+    /// Can contain quotes inside if escaped with '\', escape characters are included into result
+    fn parse(input: &str) -> Result<Self> {
+        use self::prelude::*;
+
+        let mut escape = false;
+
+        let body = take_while(|c| {
+            if escape {
+                escape = false;
+                true
+            } else if c == '\\' {
+                escape = true;
+                true
+            } else {
+                c != '"'
+            }
+        });
+
+        let result = between(
+            label("\"", char('"')),
+            label("\"", char('"')),
+            label("string", body),
+        )(input)?;
+        Ok(result)
+    }
+}
