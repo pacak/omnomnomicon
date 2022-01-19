@@ -105,12 +105,12 @@ pub fn take_rest(input: &str) -> Result<String> {
 /// # assert_eq!(r, "123");
 /// # Ok::<(), String>(())
 /// ```
-pub fn take_while<P>(predicate: P) -> impl Fn(&str) -> Result<String>
+pub fn take_while<P>(mut predicate: P) -> impl FnMut(&str) -> Result<String>
 where
-    P: Fn(char) -> bool,
+    P: FnMut(char) -> bool,
 {
     move |input| {
-        let output = input.trim_start_matches(&predicate);
+        let output = input.trim_start_matches(&mut predicate);
         let prefix_len = input.len() - output.len();
         let res = &input[..prefix_len];
         let output = Output::maybe_enabled(output, output.is_empty());
