@@ -131,7 +131,11 @@ impl<'a> Output<'a> {
             } else if input.is_empty() {
                 Err(Terminate::from(Comp::simple(" ", input.len())))
             } else {
-                Err(Terminate::default())
+                let failure = Failure {
+                    message: Cow::from("expected space"),
+                    offset: input.len(),
+                };
+                Err(Terminate::Failure(failure))
             }
         }
 
@@ -654,6 +658,15 @@ pub struct Failure {
     /// In other words assuming the input string was `"Hello world"` and parser expects
     /// `"Hello World"` then invalid part is `"world"` and offset is going to be 5.
     pub offset: usize,
+}
+
+impl From<&'static str> for Failure {
+    fn from(message: &'static str) -> Self {
+        Self {
+            message: Cow::from(message),
+            offset: usize::MAX,
+        }
+    }
 }
 
 impl std::fmt::Display for Failure {

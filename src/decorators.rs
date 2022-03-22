@@ -352,8 +352,17 @@ mod tests {
         let f = parse_hints(&mut p, "place?").unwrap();
         assert!(f.help.is_some());
 
-        // single possible help message produces result
+        // single possible help message produces result, this _should_ be none though
+        // because as soon as user types ? p parser fails
         let f = parse_hints(&mut p, "pl").unwrap();
-        assert!(f.help.is_none());
+        assert!(f.help.is_some());
+    }
+
+    #[test]
+    fn test_highlight_for_incorrect_portion() {
+        let mut p = words((literal("hello"), literal("world"), literal("x")));
+        assert_eq!(parse_hints(&mut p, "hello ww").unwrap_err().offset, 2);
+        assert_eq!(parse_hints(&mut p, "hello worldd").unwrap_err().offset, 1);
+        assert_eq!(parse_hints(&mut p, "hello world he").unwrap_err().offset, 2);
     }
 }

@@ -51,14 +51,14 @@ where
 /// # assert_eq!(&r, &["label 1", "label 2"]);
 /// # Ok::<(), String>(())
 /// ```
-pub fn parse_hints<P, R>(parser: P, input: &str) -> core::result::Result<Hints, String>
+pub fn parse_hints<P, R>(parser: P, input: &str) -> core::result::Result<Hints, Failure>
 where
     P: FnMut(&str) -> Result<R>,
 {
     match apply_parser(parser, input) {
         Some(ParseOutcome::Hints(hints)) => Ok(hints),
-        Some(ParseOutcome::Failure(x)) => Err(String::from(x)),
-        None => Err(String::from("No hints generated")),
+        Some(ParseOutcome::Failure(x)) => Err(x),
+        None => Err(Failure::from("No hints generated")),
     }
 }
 
