@@ -108,6 +108,10 @@ pub fn render_outcome(res: &ParseOutcome, color: bool) -> RustyHint {
         styled!(" {}", Color::Green, s);
     };
 
+    if hints.help.is_some() && hints.replacement.is_none() && !hints.help_requested {
+        styled!(" {}", Color::Cyan, "?");
+    }
+
     if !hints.comps.is_empty() && hints.replacement.is_none() {
         let variants = hints
             .comps

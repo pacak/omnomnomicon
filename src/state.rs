@@ -375,7 +375,7 @@ impl State {
             self.items.retain(|i| !i.is_label());
         }
         self.items.push(Info::Label(Cow::from(val)));
-        self.status.0 |= Status::HAS_LABEL;
+        self.status.insert(Status::HAS_LABEL);
     }
 
     /// Remove existing labels
@@ -384,44 +384,77 @@ impl State {
         if self.status.has_label() {
             self.items.retain(|i| !i.is_label());
         }
-        self.status.0 &= !Status::HAS_LABEL;
+        self.status.remove(Status::HAS_LABEL);
+    }
+
+    /// Set "help available" flag
+    pub fn enable_help(&mut self) {
+        self.status.insert(Status::HAS_HELP);
+    }
+
+    /// check if help is blocked
+    ///
+    /// Help will be blocked when two branches containing one are combined
+    pub fn help_blocked(&self) -> bool {
+        self.status.contains(Status::HELP_BLOCKED)
     }
 }
 
-/// Bitmask containing information about state
-#[derive(Debug, Copy, Clone)]
-pub struct Status(u8);
+pub use status::*;
+mod status {
+    use bitflags::bitflags;
 
-impl Status {
-    // internal representation
-    //
-    // collect information
-    const IS_ENABLED: u8 = 0b_0000_0001;
-    // labels are present
-    const HAS_LABEL: u8 = 0b_0000_0010;
+    bitflags! {
+        /// Bitmask containing information about state
+        pub struct Status: u8 {
+            /// Collect information, see [`State`]
+            const IS_ENABLED = 0b_0000_0001;
 
-    /// Collect information, see [`State`]
-    pub const ENABLED: Self = Self(Self::IS_ENABLED);
+            /// labels are present, mostly a performance thing
+            const HAS_LABEL  = 0b_0000_0010;
 
-    /// Ignore information, see [`State`]
-    pub const DISABLED: Self = Self(0);
+            /// help is present, a performance thing
+            const HAS_HELP = 0b_0000_0100;
 
-    /// Check if collection is enabled, see [`State`]
-    pub fn is_enabled(self) -> bool {
-        self.0 & Self::IS_ENABLED != 0
+            /// set when parser tries to combine
+            /// two branches each containing help
+            const HELP_BLOCKED = 0b_0000_1000;
+        }
     }
 
-    /// Enable information collection, see [`State`]
-    pub fn enable(&mut self) {
-        self.0 |= Self::IS_ENABLED;
-    }
+    impl Status {
+        /// Collect information, see [`State`]
+        pub const ENABLED: Self = Self::IS_ENABLED;
 
-    /// Check if labels are present.
-    pub fn has_label(self) -> bool {
-        self.0 & Self::HAS_LABEL != 0
+        /// Ignore information, see [`State`]
+        pub const DISABLED: Self = Self::empty();
+
+        /// Check if collection is enabled, see [`State`]
+        pub fn is_enabled(self) -> bool {
+            self.contains(Self::IS_ENABLED)
+        }
+
+        /// Enable information collection, see [`State`]
+        pub fn enable(&mut self) {
+            self.insert(Self::IS_ENABLED);
+        }
+
+        /// Check if labels are present.
+        pub fn has_label(self) -> bool {
+            self.contains(Self::HAS_LABEL)
+        }
+
+        /// Check if help message is available.
+        pub fn has_help(self) -> bool {
+            self.contains(Self::HAS_HELP)
+        }
+
+        /// Check if help message is available.
+        pub fn help_blocked(self) -> bool {
+            self.contains(Self::HELP_BLOCKED)
+        }
     }
 }
-
 /// Parser failed
 ///
 /// Forms a monoid with [`Terminate::default()`] and [`Add`] trait
@@ -494,7 +527,11 @@ impl Add for State {
 impl AddAssign for Status {
     #[inline]
     fn add_assign(&mut self, rhs: Self) {
-        self.0 |= rhs.0;
+        if self.has_help() && rhs.has_help() {
+            self.insert(Status::HELP_BLOCKED);
+        }
+
+        *self |= rhs;
     }
 }
 
@@ -503,7 +540,7 @@ impl Add for Status {
 
     #[inline]
     fn add(self, rhs: Self) -> Self::Output {
-        Self(self.0 | rhs.0)
+        self | rhs
     }
 }
 
@@ -597,6 +634,9 @@ impl From<Info> for State {
     #[inline]
     fn from(info: Info) -> Self {
         let mut state = State::enabled();
+        if let Info::Help(_) = info {
+            state.status.insert(Status::HAS_HELP);
+        }
         state.items.push(info);
         state
     }

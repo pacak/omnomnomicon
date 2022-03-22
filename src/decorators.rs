@@ -277,7 +277,14 @@ where
                 Terminate::Failure(failure)
             })
         }
-        Err(err) => Err(err),
+        Err(f @ Terminate::Eof(_)) => {
+            if !input.is_empty() {
+                let help = Terminate::from(Info::Help(message));
+                Err(f + help)
+            } else {
+                Err(f)
+            }
+        }
         Ok((mut output, r)) if output.input == "?" => {
             output.state.push(Info::Help(message));
             Ok((output, r))
@@ -325,4 +332,28 @@ where
         info.items.push(('0'..='9').into());
         info.items.push(Info::DisplayMask("d".into()));
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::prelude::*;
+    #[test]
+    fn help_on_literal() {
+        let p1 = help("help for place", words((literal("place"), u32::parse)));
+        let p2 = help("help for perm", words((literal("perm"), u32::parse)));
+        let mut p = choice((p1, p2));
+
+        // two potential help messages collide
+        let f = parse_hints(&mut p, "p").unwrap();
+        assert!(f.help.is_none());
+
+        // single possible help message produces result
+        let f = parse_hints(&mut p, "place?").unwrap();
+        assert!(f.help.is_some());
+
+        // single possible help message produces result
+        let f = parse_hints(&mut p, "pl").unwrap();
+        assert!(f.help.is_none());
+    }
 }
