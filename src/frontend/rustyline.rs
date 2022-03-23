@@ -93,6 +93,13 @@ pub fn render_outcome(res: &ParseOutcome, color: bool) -> RustyHint {
                 replacement: None,
             };
         }
+        ParseOutcome::Success => {
+            styled!("  {}", Color::Green, "okay");
+            return RustyHint {
+                display,
+                replacement: None,
+            };
+        }
     };
 
     if let Some(rep) = &hints.replacement {
@@ -151,6 +158,7 @@ pub fn get_event_filter(evt: &rustyline::Event, res: &ParseOutcome) -> Option<ru
     let hints = match res {
         ParseOutcome::Hints(hints) => hints,
         ParseOutcome::Failure(_) => return None,
+        ParseOutcome::Success => return None,
     };
 
     if hints.key_mask.is_empty() {
@@ -173,10 +181,10 @@ pub fn get_event_filter(evt: &rustyline::Event, res: &ParseOutcome) -> Option<ru
 /// Get completion info in `rustyline` friendly format from [`ParseOutcome`]
 ///
 /// Implements [`Completer`][rustyline::completion::Completer]
-pub fn get_completion(line: &str, res: Option<&ParseOutcome>) -> (usize, Vec<Comp>) {
+pub fn get_completion(line: &str, res: &ParseOutcome) -> (usize, Vec<Comp>) {
     let hints = match res {
-        Some(ParseOutcome::Hints(hints)) => hints,
-        None | Some(ParseOutcome::Failure(_)) => return (0, Vec::new()),
+        ParseOutcome::Hints(hints) => hints,
+        ParseOutcome::Failure(_) | ParseOutcome::Success => return (0, Vec::new()),
     };
     let mut offset = 0;
     let mut res = Vec::new();
@@ -226,7 +234,7 @@ impl RustylineCache {
             return value;
         }
         *key = input.to_string();
-        *value = apply_parser_rec(parser, input);
+        *value = Some(apply_parser_rec(parser, input));
         value
     }
 

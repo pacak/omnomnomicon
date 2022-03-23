@@ -12,7 +12,7 @@ use rustyline::{
 #[derive(Debug, Clone)]
 struct H {
     parsed_key: String,
-    parsed_value: Option<ParseOutcome>,
+    parsed_value: ParseOutcome,
 }
 
 impl H {
@@ -29,13 +29,13 @@ impl H {
         }
     }
 
-    fn cached(&mut self, input: &str) -> Option<&ParseOutcome> {
+    fn cached(&mut self, input: &str) -> &ParseOutcome {
         if self.parsed_key == input {
-            return self.parsed_value.as_ref();
+            return &self.parsed_value;
         }
         self.parsed_key = input.to_owned();
         self.parsed_value = apply_parser_rec(parse_command, input);
-        self.parsed_value.as_ref()
+        &self.parsed_value
     }
 }
 
@@ -62,26 +62,22 @@ impl ConditionalEventHandler for M {
         ctx: &rustyline::EventContext,
     ) -> Option<rustyline::Cmd> {
         let input = &ctx.line()[..ctx.pos()];
-        get_event_filter(evt, self.0.lock().unwrap().cached(input).as_ref()?)
+        get_event_filter(evt, self.0.lock().unwrap().cached(input))
     }
 }
 
 impl Helper for M {}
 impl Validator for M {}
 impl Highlighter for M {
-    fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
-        match self.0.lock().unwrap().parsed_value.as_ref() {
-            Some(res) => {
-                let r = render_outcome(res, true);
-                Cow::from(r.display)
-            }
-            None => Cow::from(hint),
-        }
+    fn highlight_hint<'h>(&self, _hint: &'h str) -> Cow<'h, str> {
+        let res = &self.0.lock().unwrap().parsed_value;
+        let r = render_outcome(res, true);
+        Cow::from(r.display)
     }
 
     fn highlight<'l>(&self, line: &'l str, _pos: usize) -> Cow<'l, str> {
-        match self.0.lock().unwrap().parsed_value.as_ref() {
-            Some(ParseOutcome::Failure(x)) => Cow::from(colorize_fail(x, line)),
+        match &self.0.lock().unwrap().parsed_value {
+            ParseOutcome::Failure(x) => Cow::from(colorize_fail(x, line)),
             _ => Cow::from(line),
         }
     }
@@ -91,10 +87,7 @@ impl Hinter for M {
     type Hint = RustyHint;
     fn hint(&self, line: &str, pos: usize, _ctx: &rustyline::Context<'_>) -> Option<Self::Hint> {
         let input = &line[..pos];
-        Some(render_outcome(
-            self.0.lock().unwrap().cached(input).as_ref()?,
-            false,
-        ))
+        Some(render_outcome(self.0.lock().unwrap().cached(input), false))
     }
 }
 

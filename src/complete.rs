@@ -84,9 +84,13 @@ pub enum ParseOutcome {
     /// Parser failed or succeeded but it's ready to accept more input. [`Hints`] contains
     /// information about expected data
     Hints(Hints),
+
     /// Parser failed, [`Failure`] contains error message and indicator to which part
     /// of input it applies. This condition usually means input needs to be modified
     Failure(Failure),
+
+    /// Parser succeeded, you can run it directly on the input to produce a parsed value
+    Success,
 }
 
 /// Try to produce parse hints or failure info given parser and a string
@@ -104,7 +108,7 @@ pub enum ParseOutcome {
 /// let p2 = label("label 2", literal("help"));
 /// let p3 = label("label 3", literal("world"));
 /// let p = choice((p1, p2, p3));
-/// let r = apply_parser(p, "he").unwrap();
+/// let r = apply_parser(p, "he");
 /// if let ParseOutcome::Hints(hints) = r {
 ///     // hints.labels
 ///     // ["label 1", "label 2"]
@@ -115,15 +119,15 @@ pub enum ParseOutcome {
 /// # }
 /// # Ok::<(), String>(())
 /// ```
-pub fn apply_parser<P, R>(mut parser: P, input: &str) -> Option<ParseOutcome>
+pub fn apply_parser<P, R>(mut parser: P, input: &str) -> ParseOutcome
 where
     P: FnMut(&str) -> Result<R>,
 {
     let info = match parser(input) {
-        Ok((output, _)) if !output.state.is_enabled() => return None,
+        Ok((output, _)) if !output.state.is_enabled() => return ParseOutcome::Success,
         Ok((output, _)) => output.state,
         Err(Terminate::Eof(state)) => state,
-        Err(Terminate::Failure(err)) => return Some(ParseOutcome::Failure(err)),
+        Err(Terminate::Failure(err)) => return ParseOutcome::Failure(err),
     };
 
     let mut labels = Vec::new();
@@ -180,7 +184,7 @@ where
         key_mask,
     };
 
-    Some(ParseOutcome::Hints(hints))
+    ParseOutcome::Hints(hints)
 }
 
 /// Try to produce parse hints or failure info given parser and a string
@@ -197,7 +201,7 @@ where
 /// let p2 = literal("-");
 /// let p3 = literal("world");
 /// let p = words((p1, p2, p3));
-/// let r = apply_parser_rec(p, "h").unwrap();
+/// let r = apply_parser_rec(p, "h");
 /// if let ParseOutcome::Hints(hints) = r {
 ///     // hints.replacement
 ///     // "hello world"
@@ -208,34 +212,34 @@ where
 /// # }
 /// # Ok::<(), String>(())
 /// ```
-pub fn apply_parser_rec<P, R>(mut parser: P, input: &str) -> Option<ParseOutcome>
+pub fn apply_parser_rec<P, R>(mut parser: P, input: &str) -> ParseOutcome
 where
     P: FnMut(&str) -> Result<R>,
 {
-    let mut hints = match apply_parser(&mut parser, input)? {
+    let mut hints = match apply_parser(&mut parser, input) {
         ParseOutcome::Hints(
             hints @ Hints {
                 replacement: Some(_),
                 ..
             },
         ) => hints,
-        r => return Some(r),
+        r => return r,
     };
     let mut new_input = format!("{}{}", input, &hints.replacement.as_ref().unwrap());
     for _ in 0..32 {
         match apply_parser(&mut parser, &new_input) {
-            Some(ParseOutcome::Hints(Hints {
+            ParseOutcome::Hints(Hints {
                 replacement: Some(rep),
                 ..
-            })) => new_input = format!("{}{}", &new_input, &rep),
+            }) => new_input = format!("{}{}", &new_input, &rep),
             _ => {
                 hints.replacement = Some(new_input[input.len()..].to_string());
-                return Some(ParseOutcome::Hints(hints));
+                return ParseOutcome::Hints(hints);
             }
         }
     }
     hints.replacement = Some(new_input[input.len()..].to_string());
-    Some(ParseOutcome::Hints(hints))
+    ParseOutcome::Hints(hints)
 }
 
 #[cfg(test)]

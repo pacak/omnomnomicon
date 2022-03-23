@@ -56,9 +56,9 @@ where
     P: FnMut(&str) -> Result<R>,
 {
     match apply_parser(parser, input) {
-        Some(ParseOutcome::Hints(hints)) => Ok(hints),
-        Some(ParseOutcome::Failure(x)) => Err(x),
-        None => Err(Failure::from("No hints generated")),
+        ParseOutcome::Hints(hints) => Ok(hints),
+        ParseOutcome::Failure(x) => Err(x),
+        ParseOutcome::Success => Err(Failure::from("No hints generated")),
     }
 }
 
@@ -81,7 +81,7 @@ where
     P: FnMut(&str) -> Result<R>,
 {
     match apply_parser(parser, input) {
-        Some(ParseOutcome::Failure(x)) => Ok(x),
+        ParseOutcome::Failure(x) => Ok(x),
         _ => Err(String::from("No failure generated")),
     }
 }
