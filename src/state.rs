@@ -832,7 +832,7 @@ impl Comp {
     /// let space = Comp::simple(" ", input.len());
     ///
     /// // Prompt to complete word banana
-    /// let input = "a ban";
+    /// let input = "a ba";
     /// let banana = Comp::simple("banana", 2);
     /// ```
     pub fn simple<M>(info: M, remaining: usize) -> Self
