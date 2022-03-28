@@ -441,3 +441,19 @@ pub struct Mystery(pub u32);
 pub struct Magical {
     pub value: u32,
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_complete_info() {
+        let h = parse_hints(parse_command, "perm a").unwrap();
+        let comps = h
+            .comps
+            .iter()
+            .map(|c| c.replacement.to_string())
+            .collect::<Vec<_>>();
+        assert_eq!(comps, ["ask", "apple"]);
+    }
+}

@@ -82,8 +82,6 @@ struct St<'a> {
     perm_state: Vec<State>,
     /// results from nonconsuming successes or failures
     loop_state: Vec<State>,
-    /// all the results are available
-    terminate: bool,
     /// there's been a _consuming_ improvement this iteration
     consumed_this_iteration: bool,
     input: &'a str,
@@ -95,7 +93,6 @@ impl<'a> St<'a> {
             perm_state: Vec::new(),
             loop_state: Vec::new(),
             consumed_this_iteration: false,
-            terminate: false,
             input,
         }
     }

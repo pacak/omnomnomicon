@@ -14,6 +14,9 @@ lexical-core = { version = "0.8", default-features = false, features=["std", "pa
 omnomnomicon_derive = { path = "./omnomnomicon_derive" }
 rustyline = { version = "9.0", default-features = false, optional = true }
 smallvec = { version = "1.6", features=["union"] }
+tui = { version = "0.17", optional = true }
+crossterm = { version = "0.22", optional = true }
+unicode-segmentation = "1.9"
 
 [dev-dependencies]
 omnomnomicon = { path = ".", features=["all"] }
@@ -23,7 +26,8 @@ default = []
 tutorial = []
 sanity = []
 frontend_rustyline = ["ansi_term", "rustyline"]
-all = ["tutorial", "frontend_rustyline", "sanity", "enum-map", "chrono"]
+frontend_tui = ["tui", "crossterm"]
+all = ["tutorial", "frontend_rustyline", "frontend_tui", "sanity", "enum-map", "chrono"]
 debug = []
 
 [[example]]

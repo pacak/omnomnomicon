@@ -404,59 +404,56 @@ impl State {
     }
 }
 
-pub use status::*;
-mod status {
-    use bitflags::bitflags;
+use bitflags::bitflags;
 
-    bitflags! {
-        /// Bitmask containing information about state
-        pub struct Status: u8 {
-            /// Collect information, see [`State`]
-            const IS_ENABLED = 0b_0000_0001;
+bitflags! {
+    /// Bitmask containing information about state
+    pub struct Status: u8 {
+        /// Collect information, see [`State`]
+        const IS_ENABLED = 0b_0000_0001;
 
-            /// labels are present, mostly a performance thing
-            const HAS_LABEL  = 0b_0000_0010;
+        /// labels are present, mostly a performance thing
+        const HAS_LABEL  = 0b_0000_0010;
 
-            /// help is present, a performance thing
-            const HAS_HELP = 0b_0000_0100;
+        /// help is present, a performance thing
+        const HAS_HELP = 0b_0000_0100;
 
-            /// set when parser tries to combine
-            /// two branches each containing help
-            const HELP_BLOCKED = 0b_0000_1000;
-        }
+        /// set when parser tries to combine
+        /// two branches each containing help
+        const HELP_BLOCKED = 0b_0000_1000;
+    }
+}
+
+impl Status {
+    /// Collect information, see [`State`]
+    pub const ENABLED: Self = Self::IS_ENABLED;
+
+    /// Ignore information, see [`State`]
+    pub const DISABLED: Self = Self::empty();
+
+    /// Check if collection is enabled, see [`State`]
+    pub fn is_enabled(self) -> bool {
+        self.contains(Self::IS_ENABLED)
     }
 
-    impl Status {
-        /// Collect information, see [`State`]
-        pub const ENABLED: Self = Self::IS_ENABLED;
+    /// Enable information collection, see [`State`]
+    pub fn enable(&mut self) {
+        self.insert(Self::IS_ENABLED);
+    }
 
-        /// Ignore information, see [`State`]
-        pub const DISABLED: Self = Self::empty();
+    /// Check if labels are present.
+    pub fn has_label(self) -> bool {
+        self.contains(Self::HAS_LABEL)
+    }
 
-        /// Check if collection is enabled, see [`State`]
-        pub fn is_enabled(self) -> bool {
-            self.contains(Self::IS_ENABLED)
-        }
+    /// Check if help message is available.
+    pub fn has_help(self) -> bool {
+        self.contains(Self::HAS_HELP)
+    }
 
-        /// Enable information collection, see [`State`]
-        pub fn enable(&mut self) {
-            self.insert(Self::IS_ENABLED);
-        }
-
-        /// Check if labels are present.
-        pub fn has_label(self) -> bool {
-            self.contains(Self::HAS_LABEL)
-        }
-
-        /// Check if help message is available.
-        pub fn has_help(self) -> bool {
-            self.contains(Self::HAS_HELP)
-        }
-
-        /// Check if help message is available.
-        pub fn help_blocked(self) -> bool {
-            self.contains(Self::HELP_BLOCKED)
-        }
+    /// Check if help message is available.
+    pub fn help_blocked(self) -> bool {
+        self.contains(Self::HELP_BLOCKED)
     }
 }
 /// Parser failed
@@ -681,6 +678,20 @@ impl Failure {
     /// See for [`help`][crate::decorators::help] for usage, generally not for end user usage.
     pub fn consumed_from(&self, input: &str) -> bool {
         input.len() > self.offset
+    }
+
+    /// Gets a refenrece to a valid part of the input
+    ///
+    /// Must be supplied with full input
+    pub fn good_part_of_input<'a>(&self, input: &'a str) -> &'a str {
+        &input[..input.len() - self.offset]
+    }
+
+    /// Gets a refenrece to an invalid part of the input
+    ///
+    /// Must be supplied with full input
+    pub fn bad_part_of_input<'a>(&self, input: &'a str) -> &'a str {
+        &input[input.len() - self.offset..]
     }
 }
 

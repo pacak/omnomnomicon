@@ -7,3 +7,6 @@
 
 #[cfg(feature = "rustyline")]
 pub mod rustyline;
+
+#[cfg(feature = "tui")]
+pub mod tui;

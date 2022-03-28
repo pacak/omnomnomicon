@@ -19,6 +19,8 @@ pub struct Hints {
 
     /// Help message for inner most parser that began to consume input but not
     /// yet finally succeeded, see [`help`][crate::decorators::help]
+    ///
+    /// To use it you can use [`help()`][Hints::help()]
     pub help: Option<&'static str>,
 
     /// The fact that help message is available doesn't mean user expects it.
@@ -73,6 +75,15 @@ impl Hints {
         res.dedup();
         res
     }
+
+    /// current help if both available and requested
+    pub fn help(&self) -> Option<&str> {
+        if self.help_requested {
+            self.help
+        } else {
+            None
+        }
+    }
 }
 
 /// Information about parsing outcome.
@@ -91,6 +102,40 @@ pub enum ParseOutcome {
 
     /// Parser succeeded, you can run it directly on the input to produce a parsed value
     Success,
+}
+
+impl ParseOutcome {
+    /// Return a reference to
+    pub fn completions(&self) -> Option<&[Comp]> {
+        match self {
+            ParseOutcome::Hints(hints) => {
+                if hints.comps.is_empty() {
+                    None
+                } else {
+                    Some(&hints.comps)
+                }
+            }
+            ParseOutcome::Failure(_) | ParseOutcome::Success => None,
+        }
+    }
+
+    /// reference to hints, if outcome contains them
+    pub fn hints(&self) -> Option<&Hints> {
+        match self {
+            ParseOutcome::Failure(_) | ParseOutcome::Success => None,
+            ParseOutcome::Hints(g) => Some(g),
+        }
+    }
+
+    /// reference to help if available and requested
+    pub fn help(&self) -> Option<&str> {
+        let hints = self.hints()?;
+        if hints.help_requested {
+            hints.help
+        } else {
+            None
+        }
+    }
 }
 
 /// Try to produce parse hints or failure info given parser and a string

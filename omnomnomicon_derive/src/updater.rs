@@ -86,7 +86,6 @@ pub struct OStruct {
     span: Span,
     ident: Ident,
     updater: Ident,
-    brace: token::Brace,
     fields: Punctuated<OField, Token![,]>,
 }
 
@@ -116,12 +115,11 @@ impl Parse for OStruct {
         let ident = input.parse::<Ident>()?;
         let content;
         let updater = Ident::new(&format!("{}Updater", ident), ident.span());
-        let brace = braced!(content in input);
+        let _brace = braced!(content in input);
         Ok(OStruct {
             span: input.span(),
             ident,
             updater,
-            brace,
             fields: content.parse_terminated(OField::parse)?,
         })
     }

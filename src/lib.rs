@@ -49,8 +49,8 @@ pub mod tutorial;
 pub mod updater;
 pub mod utils;
 pub use crate::state::*;
+pub mod editor;
 pub mod tests;
-
 pub use crate::updater::Updater;
 pub use omnomnomicon_derive::{Parser, Updater};
 
