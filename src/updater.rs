@@ -125,7 +125,7 @@ impl<T: Updater + std::fmt::Debug, const N: usize> Updater for [T; N] {
 #[cfg(feature = "enum-map")]
 impl<K, V> Updater for enum_map::EnumMap<K, V>
 where
-    K: enum_map::Enum<V> + Copy + std::fmt::Debug,
+    K: enum_map::EnumArray<V> + Copy + std::fmt::Debug,
     V: Updater,
 {
     type Updater = (K, <V as Updater>::Updater);
