@@ -20,7 +20,7 @@ pub fn derive_updater_impl(omnom: OStruct) -> Result<TokenStream> {
 
     let updater_fields = fields.iter().map(|f| {
         let OField { variant, ty, .. } = &f;
-        quote!(#variant(<#ty as Updater>::Updater))
+        quote!(#variant(<#ty as ::omnomnomicon::Updater>::Updater))
     });
     let updater_decl = quote! {
         #[derive(Debug, Clone)]
