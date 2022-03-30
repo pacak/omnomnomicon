@@ -22,7 +22,7 @@ unicode-segmentation = "1.9"
 omnomnomicon = { path = ".", features=["all"] }
 
 [features]
-default = []
+default = ["chrono", "enum-map", "frontend_tui"]
 tutorial = []
 sanity = []
 frontend_rustyline = ["ansi_term", "rustyline"]
