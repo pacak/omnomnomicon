@@ -110,6 +110,13 @@ impl LineEdit {
         }
     }
 
+    /// cancel any ongoing operation, clear the buffers
+    pub fn clear(&mut self) {
+        self.cursor = 0;
+        self.buffer.clear();
+        self.operation = None;
+    }
+
     /// consume new event
     pub fn event(&mut self, event: Action) {
         match event {
