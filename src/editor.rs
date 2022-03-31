@@ -106,7 +106,7 @@ impl LineEdit {
         if let Some(comp) = self.get_completion() {
             &self.buffer[comp.start_of_preview..]
         } else {
-            &self.buffer
+            ""
         }
     }
 
