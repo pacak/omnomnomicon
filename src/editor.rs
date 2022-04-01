@@ -1,8 +1,26 @@
-//! virtual line editor
+//! ## Virtual line editor
 //!
-//! features:
-//! - consumes keypress events and updates internal state with the user input
+//! Features:
+//! - consumes keypress events to update internal state with the user input
 //! - supports completion and edit history
+//!
+//! ```
+//! # use omnomnomicon::editor::*;
+//! let mut edit = LineEdit::default();
+//! edit.event(Action::InsertText("hello world"));
+//! assert_eq!(edit.view(), "hello world");
+//! ```
+//!
+//! ## Inputs:
+//! - [User events](Action) with [`LineEdit::event`]
+//! - Edit history: [`LineEdit::push_history`]
+//! - Completion info: [`LineEdit::complete_start`]
+//!
+//! ## Outputs:
+//! - Entered text without suggested completion: [`LineEdit::view`]
+//! - Suggested completion: [`LineEdit::virt`]
+//! - Active completion: [`LineEdit::get_completion`]
+//! - Cursor position: [`LineEdit::cursor_pos`]
 
 use std::collections::VecDeque;
 use unicode_segmentation::UnicodeSegmentation;
@@ -19,7 +37,12 @@ pub struct LineEdit {
     /// Cursor position in bytes.
     ///
     /// Can only point to a "real" text
-    cursor: usize,
+    byte_cursor: usize,
+
+    /// Cursor position in graphemes.
+    ///
+    /// Can only point to a "real" text
+    grapheme_cursor: usize,
 
     /// String buffer, actually available info
     ///
@@ -38,10 +61,10 @@ pub struct LineEdit {
 /// Generate it with [`get_completion`][LineEdit::get_completion]
 #[derive(Clone, Debug)]
 pub struct Complete {
-    /// Currently valid matches
+    /// Matches given to [`LineEdit`] by [`LineEdit::complete_start`]
     pub matches: Vec<String>,
 
-    /// currently selected match, always a valid index in [`matches`]
+    /// Currently selected match, always a valid index in [`matches`]
     pub current: usize,
 
     /// matching portion of a string in bytes
@@ -81,10 +104,14 @@ impl LineEdit {
         }
     }
 
+    fn set_byte_cursor(&mut self, pos: usize) {
+        self.byte_cursor = pos;
+        self.grapheme_cursor = self.buffer[..self.byte_cursor].graphemes(true).count();
+    }
+
     /// cursor position in characters
     pub fn cursor_pos(&self) -> usize {
-        // TODO - cache graphemes
-        self.buffer[..self.cursor].graphemes(true).count()
+        self.grapheme_cursor
     }
 
     /// editor contents that can be used for parsing, contains only "real" data
@@ -112,7 +139,8 @@ impl LineEdit {
 
     /// cancel any ongoing operation, clear the buffers
     pub fn clear(&mut self) {
-        self.cursor = 0;
+        self.byte_cursor = 0;
+        self.grapheme_cursor = 0;
         self.buffer.clear();
         self.operation = None;
     }
@@ -122,21 +150,23 @@ impl LineEdit {
         match event {
             Action::InsertChar(chr) => {
                 self.reset_complete();
-                if self.cursor == self.buffer.len() {
+                if self.byte_cursor == self.buffer.len() {
                     self.buffer.push(chr)
                 } else {
-                    self.buffer.insert(self.cursor, chr);
+                    self.buffer.insert(self.byte_cursor, chr);
                 }
-                self.cursor += chr.len_utf8();
+                self.byte_cursor += chr.len_utf8();
+                self.grapheme_cursor += 1;
             }
             Action::InsertText(string) => {
                 self.reset_complete();
-                if self.cursor == self.buffer.len() {
+                if self.byte_cursor == self.buffer.len() {
                     self.buffer.push_str(string)
                 } else {
-                    self.buffer.insert_str(self.cursor, string)
+                    self.buffer.insert_str(self.byte_cursor, string)
                 }
-                self.cursor += string.len();
+                self.byte_cursor += string.len();
+                self.grapheme_cursor += string.graphemes(true).count();
             }
             Action::Move(mov) => {
                 let new_cursor = self.new_cursor(mov);
@@ -146,18 +176,18 @@ impl LineEdit {
                         return;
                     }
                 }
-                self.cursor = new_cursor;
+                self.set_byte_cursor(new_cursor);
             }
             Action::Kill(mov) => {
                 self.reset_complete();
                 let to = self.new_cursor(mov);
-                let range = match to.cmp(&self.cursor) {
-                    std::cmp::Ordering::Less => to..self.cursor,
+                let range = match to.cmp(&self.byte_cursor) {
+                    std::cmp::Ordering::Less => to..self.byte_cursor,
                     std::cmp::Ordering::Equal => return,
-                    std::cmp::Ordering::Greater => self.cursor..to,
+                    std::cmp::Ordering::Greater => self.byte_cursor..to,
                 };
                 self.buffer.replace_range(range.clone(), "");
-                self.cursor = range.start;
+                self.set_byte_cursor(range.start);
                 self.operation = None;
             }
             Action::HistoryPrev => {
@@ -223,15 +253,16 @@ impl LineEdit {
 
     fn reset_complete(&mut self) {
         if let Some(Operation::Complete(comp)) = &self.operation {
-            self.cursor = comp.start_of_preview;
-            self.buffer.truncate(self.cursor);
+            let start_of_preview = comp.start_of_preview;
+            self.set_byte_cursor(start_of_preview);
+            self.buffer.truncate(self.byte_cursor);
             self.operation = None;
         }
     }
 
     fn commit_complete(&mut self) {
         if let Some(Operation::Complete(_comp)) = &self.operation {
-            self.cursor = self.buffer.len();
+            self.set_byte_cursor(self.buffer.len());
             self.operation = None;
         }
     }
@@ -259,19 +290,20 @@ impl LineEdit {
             }
             return;
         }
-        let first = matches.first().expect("complete start with no variants?");
-        self.buffer.push_str(&first[matching..]);
+        if let Some(first) = matches.first() {
+            self.buffer.push_str(&first[matching..]);
 
-        self.operation = Some(Operation::Complete(Complete {
-            matches: matches
-                .iter()
-                .copied()
-                .map(String::from)
-                .collect::<Vec<_>>(),
-            matching,
-            current: 0,
-            start_of_preview: self.cursor,
-        }));
+            self.operation = Some(Operation::Complete(Complete {
+                matches: matches
+                    .iter()
+                    .copied()
+                    .map(String::from)
+                    .collect::<Vec<_>>(),
+                matching,
+                current: 0,
+                start_of_preview: self.byte_cursor,
+            }));
+        }
     }
 
     /// gets a reference to current completion, if active
@@ -284,12 +316,12 @@ impl LineEdit {
     }
 
     fn new_cursor(&self, mov: Move) -> usize {
-        // TODO - cache breakdowns
+        // TODO - cache breakdowns?
         match mov {
             Move::BwChar => {
                 let mut prev = 0;
                 for (ix, _) in self.buffer.grapheme_indices(true) {
-                    if ix == self.cursor {
+                    if ix == self.byte_cursor {
                         return prev;
                     } else {
                         prev = ix;
@@ -303,7 +335,7 @@ impl LineEdit {
                     if found {
                         return ix;
                     }
-                    if ix == self.cursor {
+                    if ix == self.byte_cursor {
                         found = true;
                     }
                 }
@@ -312,7 +344,7 @@ impl LineEdit {
             Move::BwWord => {
                 let mut prev = 0;
                 for (ix, _) in self.buffer.unicode_word_indices() {
-                    if ix >= self.cursor {
+                    if ix >= self.byte_cursor {
                         return prev;
                     } else {
                         prev = ix;
@@ -326,7 +358,7 @@ impl LineEdit {
                     if found {
                         return ix;
                     }
-                    match ix.cmp(&self.cursor) {
+                    match ix.cmp(&self.byte_cursor) {
                         std::cmp::Ordering::Less => {}
                         std::cmp::Ordering::Equal => found = true,
                         std::cmp::Ordering::Greater => return ix,
@@ -472,17 +504,17 @@ mod tests {
         line.complete_start(0, &words);
         assert_eq!(line.preview(), "place");
         assert_eq!(line.view(), "");
-        assert_eq!(line.cursor, 0);
+        assert_eq!(line.byte_cursor, 0);
         line.event(Action::CompleteNext);
 
         assert_eq!(line.preview(), "cancel");
         assert_eq!(line.view(), "");
-        assert_eq!(line.cursor, 0);
+        assert_eq!(line.byte_cursor, 0);
         line.event(Action::CompletePrev);
         line.event(Action::CompletePrev);
         assert_eq!(line.preview(), "potato");
         assert_eq!(line.view(), "");
-        assert_eq!(line.cursor, 0);
+        assert_eq!(line.byte_cursor, 0);
     }
 
     #[test]

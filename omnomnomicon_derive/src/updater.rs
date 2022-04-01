@@ -101,7 +101,8 @@ struct OField {
     ty: Type,
     /// documentation string, if present, `"docu"`
     docs: Option<String>,
-    /// whether to add a bound check
+    /// whether to add a bound check, currently unused
+    #[allow(dead_code)]
     bounded: bool,
     /// whether to skip
     skip: bool,

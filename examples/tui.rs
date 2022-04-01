@@ -53,7 +53,10 @@ fn main() -> std::io::Result<()> {
             if key.code == KeyCode::Char('c') && key.modifiers == KeyModifiers::CONTROL {
                 break;
             } else if key.code == KeyCode::Enter {
-                println!("{:?}", input.editor.view());
+                let line = input.editor.view().to_owned();
+                // println!("{line}"); <- consume the line here
+                input.editor.clear();
+                input.editor.push_history(line, 100);
             }
         }
     }
