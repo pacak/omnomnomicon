@@ -197,12 +197,7 @@ impl Readline {
         let prompt = "> ";
 
         if let Some(comp) = self.outcome.completions() {
-            let matching = comp[0].remaining;
-            let matches = comp
-                .iter()
-                .map(|c| c.replacement.as_ref())
-                .collect::<Vec<_>>();
-            self.editor.complete_start(matching, &matches);
+            self.editor.complete_start(comp);
         }
 
         match &self.outcome {

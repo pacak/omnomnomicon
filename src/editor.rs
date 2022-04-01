@@ -25,6 +25,8 @@
 use std::collections::VecDeque;
 use unicode_segmentation::UnicodeSegmentation;
 
+use crate::Comp;
+
 /// Virtual line editor
 ///
 /// Create it with [`Default`] impl, feed with events using [`event`][LineEdit::event],
@@ -276,34 +278,43 @@ impl LineEdit {
         }
     }
 
-    /// Populate completion variants
-    ///
-    /// matching - length in bytes of a matching portion. `matching` bytes
-    /// at the end of the real buffer part of the buffer should be
-    /// the same as `matching` bytes of every string inside matches.
-    ///
-    /// matches must be non empty
-    pub fn complete_start(&mut self, matching: usize, matches: &[&str]) {
-        if let Some(Operation::Complete(comp)) = &mut self.operation {
-            if comp.matches == matches {
-                comp.matching = matching;
+    /// Populate completion info
+    pub fn complete_start(&mut self, matches: &[Comp]) {
+        // empty inputs disables completion
+        let first = match matches.first() {
+            Some(first) => first,
+            None => {
+                self.reset_complete();
+                return;
             }
-            return;
-        }
-        if let Some(first) = matches.first() {
-            self.buffer.push_str(&first[matching..]);
+        };
 
-            self.operation = Some(Operation::Complete(Complete {
-                matches: matches
-                    .iter()
-                    .copied()
-                    .map(String::from)
-                    .collect::<Vec<_>>(),
-                matching,
-                current: 0,
-                start_of_preview: self.byte_cursor,
-            }));
+        if let Some(Operation::Complete(comp)) = &mut self.operation {
+            if comp
+                .matches
+                .iter()
+                .zip(matches)
+                .all(|(a, b)| a == &b.replacement)
+            {
+                comp.matching = first.remaining;
+                return;
+            } else {
+                self.reset_complete();
+            }
         }
+
+        let matching = first.remaining;
+        self.buffer.push_str(&first.replacement[matching..]);
+
+        self.operation = Some(Operation::Complete(Complete {
+            matches: matches
+                .iter()
+                .map(|comp| comp.replacement.to_string())
+                .collect::<Vec<_>>(),
+            matching,
+            current: 0,
+            start_of_preview: self.byte_cursor,
+        }));
     }
 
     /// gets a reference to current completion, if active
@@ -414,7 +425,20 @@ pub enum Action<'a> {
 
 #[cfg(test)]
 mod tests {
+    use std::borrow::Cow;
+
     use super::*;
+
+    fn comps(offset: usize, input: &[&'static str]) -> Vec<Comp> {
+        input
+            .iter()
+            .map(|w| Comp {
+                replacement: Cow::Borrowed(w),
+                display: Cow::Borrowed(w),
+                remaining: offset,
+            })
+            .collect()
+    }
 
     #[test]
     fn unicode_insert_delete() {
@@ -470,7 +494,7 @@ mod tests {
 
         let words = ["water", "wakanda", "world"];
 
-        line.complete_start(1, &words);
+        line.complete_start(&comps(1, &words));
 
         assert_eq!(line.preview(), "hello water");
         assert_eq!(line.view(), "hello w");
@@ -501,7 +525,7 @@ mod tests {
     fn completion_blank() {
         let mut line = LineEdit::default();
         let words = ["place", "cancel", "potato"];
-        line.complete_start(0, &words);
+        line.complete_start(&comps(0, &words));
         assert_eq!(line.preview(), "place");
         assert_eq!(line.view(), "");
         assert_eq!(line.byte_cursor, 0);
@@ -521,7 +545,7 @@ mod tests {
     fn moving_into_preview_completes_it() {
         let mut line = LineEdit::default();
         let words = ["place"];
-        line.complete_start(0, &words);
+        line.complete_start(&comps(0, &words));
         line.event(Action::Move(Move::FwChar));
         assert_eq!(line.preview(), "place");
         assert_eq!(line.view(), "place");
@@ -532,31 +556,31 @@ mod tests {
     fn completion_blank2() {
         let mut line = LineEdit::default();
         let words = ["place"];
-        line.complete_start(0, &words);
+        line.complete_start(&comps(0, &words));
         assert_eq!(line.preview(), "place");
         assert_eq!(line.view(), "");
         assert_eq!(line.cursor_pos(), 0);
 
         line.event(Action::InsertChar('p'));
-        line.complete_start(1, &words);
+        line.complete_start(&comps(1, &words));
         assert_eq!(line.preview(), "place");
         assert_eq!(line.view(), "p");
         assert_eq!(line.cursor_pos(), 1);
 
         line.event(Action::InsertChar('l'));
-        line.complete_start(2, &words);
+        line.complete_start(&comps(2, &words));
         assert_eq!(line.preview(), "place");
         assert_eq!(line.view(), "pl");
         assert_eq!(line.cursor_pos(), 2);
 
         line.event(Action::InsertChar('a'));
-        line.complete_start(3, &words);
+        line.complete_start(&comps(3, &words));
         assert_eq!(line.preview(), "place");
         assert_eq!(line.view(), "pla");
         assert_eq!(line.cursor_pos(), 3);
 
         line.event(Action::Kill(Move::BwChar));
-        line.complete_start(2, &words);
+        line.complete_start(&comps(2, &words));
         assert_eq!(line.preview(), "place");
         assert_eq!(line.view(), "pl");
         assert_eq!(line.cursor_pos(), 2);
@@ -567,8 +591,8 @@ mod tests {
         let mut line = LineEdit::default();
         let words = ["place"];
         line.event(Action::InsertText("pl"));
-        line.complete_start(2, &words);
-        line.complete_start(2, &words);
+        line.complete_start(&comps(2, &words));
+        line.complete_start(&comps(2, &words));
         assert_eq!(line.preview(), "place");
         assert_eq!(line.view(), "pl");
         assert_eq!(line.cursor_pos(), 2);
@@ -579,8 +603,8 @@ mod tests {
         let mut line = LineEdit::default();
         let words = ["potato"];
         line.event(Action::InsertText("place po"));
-        line.complete_start(2, &words);
-        line.complete_start(2, &words);
+        line.complete_start(&comps(2, &words));
+        line.complete_start(&comps(2, &words));
         assert_eq!(line.preview(), "place potato");
         assert_eq!(line.view(), "place po");
         assert_eq!(line.cursor_pos(), 8);
@@ -591,7 +615,7 @@ mod tests {
         let mut line = LineEdit::default();
         let words = ["potato"];
         line.event(Action::InsertText("place po"));
-        line.complete_start(2, &words);
+        line.complete_start(&comps(2, &words));
         assert_eq!(line.cursor_pos(), 8);
         println!("-{:?}", line);
         line.event(Action::Move(Move::BwChar));

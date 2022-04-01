@@ -105,17 +105,20 @@ pub enum ParseOutcome {
 }
 
 impl ParseOutcome {
-    /// Return a reference to
+    /// Return a reference to current completions, can be empty
     pub fn completions(&self) -> Option<&[Comp]> {
         match self {
-            ParseOutcome::Hints(hints) => {
-                if hints.comps.is_empty() {
-                    None
-                } else {
-                    Some(&hints.comps)
-                }
-            }
+            ParseOutcome::Hints(hints) => Some(&hints.comps),
             ParseOutcome::Failure(_) | ParseOutcome::Success => None,
+        }
+    }
+    /// Return a reference to current completions, can't be empty
+    pub fn non_empty_completions(&self) -> Option<&[Comp]> {
+        let comps = self.completions()?;
+        if comps.is_empty() {
+            None
+        } else {
+            Some(comps)
         }
     }
 
