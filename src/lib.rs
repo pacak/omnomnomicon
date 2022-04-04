@@ -36,6 +36,7 @@ mod macros;
 extern crate self as omnomnomicon;
 
 #[cfg(feature = "chrono")]
+#[doc(hidden)]
 pub mod chrono;
 pub mod combinators;
 pub mod complete;

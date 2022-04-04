@@ -44,7 +44,7 @@
 
 use crate::*;
 
-/// Parallel combination of two parsers
+/// Parallel combination of two parsers: `choice` specialized to two parsers
 ///
 /// Tries to parse input with both given parsers, succeeds if either of those succeeds. Inner
 /// parsers could be primitive such as [`literal`][crate::parsers::literal] and composite such as [`between`]
@@ -284,7 +284,7 @@ where
     }
 }
 
-/// Turn failing parser for `R` into succeding that returns `<Option<R>>`
+/// Turn failing parser for `R` into succeding that returns `Option<R>`
 ///
 /// If parser `P` fails outer parser will return `None` without consuming any input, if it succeeds
 /// - `option` will consume used input and return `Some(R)`.
@@ -331,10 +331,10 @@ fn pwords_preserve_partial_match_info() {
     assert_eq!(&h, &["potato"]);
 }
 
-/// Apply parser multiple times, collect results into a Vec
+/// Apply parser multiple times, collect results into a `Vec<R>`
 ///
-/// Longer description that explains what function does, reference
-/// to other functions and types
+/// Parser should not succeed without consuming anything since this will result in a loop
+///
 /// # Examples
 /// ```rust
 /// use omnomnomicon::prelude::*;

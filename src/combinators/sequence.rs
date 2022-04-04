@@ -147,6 +147,15 @@ macro_rules! derive_words {
 }
 derive_words!(P1 R1, P2 R2, P3 R3, P4 R4, P5 R5, P6 R6, P7 R7, P8 R8, P9 R9, P10 R10, P11 R11, P12 R12, P13 R13);
 
+impl<P, R> Tuple<R> for P
+where
+    P: FnMut(&str) -> Result<R>,
+{
+    fn tuple<'a>(&mut self, input: &'a str) -> Result<'a, R> {
+        self(input)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::prelude::*;

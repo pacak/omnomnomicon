@@ -64,4 +64,20 @@ macro_rules! derive_choice {
     ($fparser:ident) => {};
 }
 
+impl<P, R> Choice<R> for P
+where
+    P: FnMut(&str) -> Result<R>,
+{
+    fn choice<'a>(&mut self, input: &'a str) -> Result<'a, R> {
+        self(input)
+    }
+}
+
+#[test]
+fn single_fn_choice() {
+    let p = crate::parsers::literal("hello");
+    let mut r = choice(p);
+    r("hello").unwrap();
+}
+
 derive_choice!(P1 P2 P3 P4 P5 P6 P7 P8 P9 P10 P11 P12 P13 P14 P15 P16 P17 P18 P19 P20 P21 P22 P23 P24 P25 P26);
