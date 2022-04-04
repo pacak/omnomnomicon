@@ -1,5 +1,5 @@
 [package]
-name = "omnomnomicon_tests"
+name = "fuzz"
 version = "0.1.0"
 edition = "2021"
 
@@ -12,7 +12,7 @@ rustyline = { version = "9.0", default-features = false, optional = true }
 enum-map = { version = "1.1", default-features = false }
 lexical-core = { version = "0.8", default-features = false, features=[ "std", "parse-integers", "parse-floats"] }
 smallvec = { version = "1.6", features=["union"] }
-omnomnomicon = { path = "../", features=["tutorial", "frontend_rustyline", "sanity", "enum-map", "chrono"] }
+omnomnomicon = { path = "../", features=["tutorial", "frontend_tui", "sanity", "enum-map", "chrono"] }
 chrono = { version = "0.4" }
 
 [dev-dependencies]
@@ -26,9 +26,3 @@ harness = false
 name = "fuzz"
 path = "src/main.rs"
 required-features = ["honggfuzz"]
-
-[[example]]
-name = "rustyline_ext"
-required-features = ["rustyline"]
-
-

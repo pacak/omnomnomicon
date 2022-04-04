@@ -18,7 +18,7 @@
 //! # Cargo Features
 //!
 //! ## Frontends
-//! - [`frontend_rustyline`][crate::frontend::rustyline]
+//! - [`frontend_tui`][crate::frontend::tui]
 //!
 //! ## Library support
 //! - `enum-map` - [`Updater`][crate::updater::Updater] for `EnumMap`
