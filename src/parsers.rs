@@ -528,6 +528,112 @@ where
     }
 }
 
+/// Lookup key with labels in a table given by an iterator
+///
+/// Given a table of mappings between strings and keys `lookup_key` tries to parse
+/// a first matching string as a separate word from the input and return a corresponding key `K`.
+/// It is possible to restruct amount of results produced by `lookup_key` using `limit`  argument.
+///
+/// Similar to [`lookup_key`] but generates completion info containing both textual value and a
+/// label.
+///
+/// # Examples
+/// ```rust
+/// # use omnomnomicon::prelude::*;
+/// # use std::borrow::Cow;
+/// #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+/// enum Items {
+///     Apple,
+///     Banana,
+///     Flammenwerfer,
+///     Pineapple,
+///     SafeWord,
+/// }
+///
+/// use Items::*;
+/// let table = &[
+///     (Apple, Cow::from("apple"), Cow::from("a regular apple")),
+///     (Banana, Cow::from("banana"), Cow::from("Mmmm... BANANA!")),
+///     (Flammenwerfer, Cow::from("Flammenwerfer"), Cow::from("Hans!")),
+///     (Pineapple, Cow::from("pineapple"), Cow::from("Put it on a pizza. Or not")),
+///     (SafeWord, Cow::from("FLÜGGÅӘNKб€ČHIŒßØLĮÊN"), Cow::from("A safe word")),
+/// ];
+/// let p = lookup_key_label(table.iter().cloned(), 10);
+///
+/// let r = parse_result(&p, "apple")?;
+/// // Apple
+/// assert_eq!(r, Items::Apple);
+///
+/// let r = parse_result(&p, "FLÜGGÅӘNKб€ČHIŒßØLĮÊN")?;
+/// // SafeWord
+/// assert_eq!(r, Items::SafeWord);
+///
+/// let r = parse_result(&p, "F");
+/// // fails but suggests "Flammenwerfer" and "FLÜGGÅӘNKб€ČHIŒßØLĮÊN"
+///
+/// # let comps = |s| {
+/// #    let mut v = parse_hints(&p, s)
+/// #        .unwrap()
+/// #        .comps
+/// #        .into_iter()
+/// #        .map(|c| c.replacement)
+/// #        .collect::<Vec<_>>();
+/// #    v.sort();
+/// #    v
+/// # };
+/// # assert_eq!(comps("F"), &["FLÜGGÅӘNKб€ČHIŒßØLĮÊN", "Flammenwerfer"]);
+/// # Ok::<(), String>(())
+/// ```
+pub fn lookup_key_label<T, K>(table: T, limit: usize) -> impl Fn(&str) -> Result<K>
+where
+    T: Iterator<Item = (K, Cow<'static, str>, Cow<'static, str>)> + Clone,
+    K: Clone,
+{
+    use crate::utils::*;
+    move |input| {
+        let mut state = State::disabled();
+        let mut r = None;
+        let mut comp_present = 0;
+
+        for (key, replacement, display) in table.clone() {
+            match check_prefix(&replacement, input) {
+                PrefixCheck::Match => {
+                    if at_word_boundary(&replacement, input) {
+                        r = Some((key.clone(), replacement));
+                    }
+                }
+                PrefixCheck::Partial => {
+                    state.push(Comp {
+                        replacement,
+                        display,
+                        remaining: input.len(),
+                    });
+
+                    comp_present += 1;
+                    if comp_present > limit {
+                        break;
+                    }
+                }
+                PrefixCheck::Mismatch => {}
+            }
+        }
+
+        match r {
+            Some((key, pat)) => {
+                let input = &input[pat.len()..];
+                Ok((Output { input, state }, key))
+            }
+            None => {
+                if comp_present > 0 {
+                    Err(Terminate::from(state))
+                } else {
+                    Terminate::fail(input, "lookup_key: Key not found")
+                }
+            }
+        }
+    }
+}
+
 /// Try to parse an item from a table and return it's index
 ///
 /// A variant of [`lookup_key`] specialized to use element's index as it's key.
