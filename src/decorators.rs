@@ -264,7 +264,7 @@ where
 /// state of item, etc.
 ///
 /// See also [`with_label`]
-pub fn hint<P, L, R>(hint: &'static str, parser: P) -> impl FnMut(&str) -> Result<R>
+pub fn hint<P, R>(hint: &'static str, parser: P) -> impl FnMut(&str) -> Result<R>
 where
     P: FnMut(&str) -> Result<R>,
 {
