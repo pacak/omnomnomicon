@@ -158,6 +158,15 @@ impl Readline {
         }
     }
 
+    /// wipe state, refresh rendering
+    pub fn reset<P, R>(&mut self, parser: P)
+    where
+        P: FnMut(&str) -> omnomnomicon::Result<R>,
+    {
+        self.outcome = apply_parser(parser, "");
+        self.editor.clear();
+    }
+
     /// read key, handle or return it
     pub fn read<R, P>(&mut self, parser: P) -> crossterm::Result<Option<Event>>
     where
