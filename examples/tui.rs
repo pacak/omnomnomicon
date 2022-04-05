@@ -55,7 +55,7 @@ fn main() -> std::io::Result<()> {
             } else if key.code == KeyCode::Enter {
                 let line = input.editor.view().to_owned();
                 // println!("{line}"); <- consume the line here
-                input.editor.clear();
+                input.reset(&mut p);
                 input.editor.push_history(line, 100);
             }
         }
