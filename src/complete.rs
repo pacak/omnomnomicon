@@ -148,7 +148,6 @@ impl ParseOutcome {
 ///
 /// `None` means parser produced some output without any additional information.
 ///
-/// See also [`apply_parser_rec`].
 /// # Examples
 /// ```rust
 /// # use omnomnomicon::prelude::*;
@@ -235,6 +234,7 @@ where
     ParseOutcome::Hints(hints)
 }
 
+/*
 /// Try to produce parse hints or failure info given parser and a string
 ///
 /// A variant of [`apply_parser`] that will try to apply single available replacement when present
@@ -260,6 +260,7 @@ where
 /// # }
 /// # Ok::<(), String>(())
 /// ```
+/// /// TODO - apply_rec should modify the completion info to account for fake text
 pub fn apply_parser_rec<P, R>(mut parser: P, input: &str) -> ParseOutcome
 where
     P: FnMut(&str) -> Result<R>,
@@ -289,6 +290,7 @@ where
     hints.replacement = Some(new_input[input.len()..].to_string());
     ParseOutcome::Hints(hints)
 }
+*/
 
 #[cfg(test)]
 mod tests {

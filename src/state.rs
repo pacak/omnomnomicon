@@ -108,9 +108,9 @@ impl<'a> Output<'a> {
 
     /// Whitespace aware parser chaining primitive that deals with spaces
     ///
-    /// between two consuming parsers there must be at lest one space
-    /// Outer edges are considered as non consuming
-    /// Space is consumed by the right consuming entry
+    /// Between two consuming parsers there must be at lest one space.
+    /// Outer edges are considered as non consuming.
+    /// Space is consumed by the right consuming entry.
 
     pub fn bind_space<P, R>(self, consumed: bool, mut parser: P) -> Result<'a, R>
     where

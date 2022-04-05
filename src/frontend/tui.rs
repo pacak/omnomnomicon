@@ -151,7 +151,7 @@ impl Readline {
     where
         P: FnMut(&str) -> omnomnomicon::Result<R>,
     {
-        let outcome = apply_parser_rec(parser, "");
+        let outcome = apply_parser(parser, "");
         Self {
             editor: LineEdit::default(),
             outcome,
@@ -171,7 +171,7 @@ impl Readline {
 
         if let Some(action) = keycode_to_action(key) {
             self.editor.event(action);
-            self.outcome = apply_parser_rec(parser, self.editor.view());
+            self.outcome = apply_parser(parser, self.editor.view());
             Ok(None)
         } else {
             Ok(Some(evt))

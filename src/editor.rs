@@ -542,6 +542,26 @@ mod tests {
     }
 
     #[test]
+    fn partial_completion() {
+        let mut line = LineEdit::default();
+        let words = ["place", "planet"];
+        line.event(Action::InsertText("this pl"));
+        line.complete_start(&comps(2, &words));
+
+        assert_eq!(line.preview(), "this place");
+        assert_eq!(line.view(), "this pl");
+        assert_eq!(line.byte_cursor, 7);
+        line.event(Action::CompleteNext);
+        assert_eq!(line.preview(), "this planet");
+        assert_eq!(line.view(), "this pl");
+        assert_eq!(line.byte_cursor, 7);
+        line.event(Action::Move(Move::FwChar));
+        assert_eq!(line.preview(), "this planet");
+        assert_eq!(line.view(), "this planet");
+        assert_eq!(line.byte_cursor, 11);
+    }
+
+    #[test]
     fn moving_into_preview_completes_it() {
         let mut line = LineEdit::default();
         let words = ["place"];
