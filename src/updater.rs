@@ -60,7 +60,7 @@ pub trait Updater {
     /// Parse an updater for a current item
     ///
     /// For structures containing multiple fields first thing `enter` method shoud do is to
-    /// parse `entry` as [`literal`] from a string and ignore it's value
+    /// parse `entry` as [`literal`] from the input and ignore it's value
     fn enter<'a>(&self, entry: &'static str, input: &'a str) -> Result<'a, Self::Updater>;
 
     /// Apply changes from [`Self::Updater`] to a current value
