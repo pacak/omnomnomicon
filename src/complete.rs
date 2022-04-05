@@ -190,6 +190,7 @@ where
             Info::DisplayMask(mask) => display_mask = Some(mask.display),
             Info::KeyMask(mask) => key_mask.push(mask),
             Info::Label(label) => labels.push(label),
+            Info::Hint(hint) => labels.push(hint),
         }
     }
     #[cfg(feature = "sanity")]

@@ -33,7 +33,7 @@ pub fn derive_updater_impl(omnom: OStruct) -> Result<TokenStream> {
         let OField { variant, ident, .. } = f;
         let fname = ident.to_string();
         let p = quote! {
-            let mut p = #_crate::tagged(#fname, |i| self.#ident.enter(".", i));
+            let mut p = #_crate::tagged(#fname, #_crate::label_if_missing(#fname, |i| self.#ident.enter(".", i)));
         };
         let p = match &f.docs {
             Some(docs) => quote! { #p; let mut p = #_crate::help(#docs, p);},

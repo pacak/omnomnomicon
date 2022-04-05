@@ -158,6 +158,18 @@ where
     map_info(parser, move |state| state.push_label(label))
 }
 
+/// Add a static label to a parser unless label already present
+pub fn label_if_missing<P, R>(label: &'static str, parser: P) -> impl FnMut(&str) -> Result<R>
+where
+    P: FnMut(&str) -> Result<R>,
+{
+    map_info(parser, move |state| {
+        if !state.status.has_label() {
+            state.push_label(label)
+        }
+    })
+}
+
 /// Modify labels on nested parsers with a function
 ///
 /// ```rust
@@ -227,8 +239,13 @@ where
     relabel(move |l| *l = Cow::from(format!("{}{}", l, label)), parser)
 }
 
-/// Adds a dynamic hint label for parser F
+/// Adds a dynamic label for parser F
 ///
+/// Labels are better suited to describe what the parsers are.
+/// Only the most outer label is kept for any parser combinations,
+/// label will be used to report expected items
+///
+/// See also [`with_hint`]
 pub fn with_label<P, L, R>(mut label_fn: L, parser: P) -> impl FnMut(&str) -> Result<R>
 where
     L: FnMut() -> Option<Cow<'static, str>>,
@@ -237,6 +254,39 @@ where
     map_info(parser, move |state| {
         if let Some(msg) = label_fn() {
             state.push_label(msg)
+        }
+    })
+}
+
+/// Adds a dynamic hint for parser F
+///
+/// Hints are better suited to describe possible values such as current
+/// state of item, etc.
+///
+/// See also [`with_label`]
+pub fn hint<P, L, R>(hint: &'static str, parser: P) -> impl FnMut(&str) -> Result<R>
+where
+    P: FnMut(&str) -> Result<R>,
+{
+    map_info(parser, move |state| {
+        state.items.push(Info::Hint(Cow::Borrowed(hint)))
+    })
+}
+
+/// Adds a staic hint for parser F
+///
+/// Hints are better suited to describe possible values such as current
+/// state of item, etc.
+///
+/// See also [`label`]
+pub fn with_hint<P, L, R>(mut hint: L, parser: P) -> impl FnMut(&str) -> Result<R>
+where
+    L: FnMut() -> Option<Cow<'static, str>>,
+    P: FnMut(&str) -> Result<R>,
+{
+    map_info(parser, move |state| {
+        if let Some(msg) = hint() {
+            state.items.push(Info::Hint(msg))
         }
     })
 }

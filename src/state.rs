@@ -413,7 +413,7 @@ bitflags! {
         const IS_ENABLED = 0b_0000_0001;
 
         /// labels are present, mostly a performance thing
-        const HAS_LABEL  = 0b_0000_0010;
+        const HAS_LABEL = 0b_0000_0010;
 
         /// help is present, a performance thing
         const HAS_HELP = 0b_0000_0100;
@@ -730,6 +730,8 @@ pub enum Info {
     KeyMask(KeyMask),
     /// Static or dynamic label, see [`label`][crate::decorators::label]
     Label(Cow<'static, str>),
+    /// Static or dynamic hint, see [`hint`][crate::decorators::hint]
+    Hint(Cow<'static, str>),
 }
 
 impl Info {

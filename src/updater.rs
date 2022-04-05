@@ -73,7 +73,7 @@ where
 {
     type Updater = T;
     fn enter<'a>(&self, _: &'static str, input: &'a str) -> Result<'a, Self::Updater> {
-        with_label(
+        with_hint(
             || Some(Cow::from(format!("cur: {:?}", self))),
             Parser::parse,
         )(input)
@@ -90,7 +90,7 @@ impl<T: Parser + Clone + std::fmt::Debug> Updater for Option<T> {
         let enabled = tagged("some", fmap(Some, T::parse));
         let disabled = tag(None, "none");
 
-        with_label(
+        with_hint(
             || Some(Cow::from(format!("cur: {:?}", self))),
             or(enabled, disabled),
         )(input)
@@ -106,7 +106,7 @@ impl<T: Updater + std::fmt::Debug, const N: usize> Updater for [T; N] {
 
     fn enter<'a>(&self, entry: &'static str, input: &'a str) -> Result<'a, Self::Updater> {
         let label_ix = || Some(Cow::from(format!("arr index, 0..{}", N - 1)));
-        let parse_ix = with_label(label_ix, number::<usize>);
+        let parse_ix = with_hint(label_ix, number::<usize>);
         let (output, _) = literal(entry)(input)?;
         let key_input = output.input;
         let (output, key) = output.bind_space(true, parse_ix)?;
