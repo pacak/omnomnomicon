@@ -212,6 +212,7 @@ impl LineEdit {
                     self.buffer = self.history[hist.current_index].clone();
                     self.operation = Some(Operation::HistorySearch(hist));
                 }
+                self.set_byte_cursor(self.buffer.len());
             }
             Action::HistoryNext => {
                 self.reset_complete();
@@ -223,6 +224,7 @@ impl LineEdit {
                         hist.current_index += 1;
                         self.buffer = self.history[hist.current_index].clone();
                     }
+                    self.set_byte_cursor(self.buffer.len());
                 }
             }
             Action::CompletePrev => {
@@ -652,7 +654,7 @@ mod tests {
     #[test]
     fn history_works() {
         let mut line = LineEdit::default();
-        let history = ["potato", "banana", "apple"];
+        let history = ["potato", "banana!!!!", "apple"];
         for h in &history {
             line.push_history(String::from(*h), 10);
         }
@@ -663,7 +665,7 @@ mod tests {
 
         line.event(Action::HistoryPrev);
         assert_eq!(line.preview(), history[2]);
-        assert_eq!(line.cursor_pos(), 0);
+        assert_eq!(line.cursor_pos(), 5);
 
         line.event(Action::HistoryNext);
         assert_eq!(line.preview(), "");
@@ -673,6 +675,6 @@ mod tests {
         line.event(Action::HistoryPrev);
         line.event(Action::HistoryPrev);
         assert_eq!(line.preview(), history[0]);
-        assert_eq!(line.cursor_pos(), 0);
+        assert_eq!(line.cursor_pos(), 6);
     }
 }
