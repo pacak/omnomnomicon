@@ -154,7 +154,7 @@ impl Widget for CompsBlock<'_> {
                 .items
                 .iter()
                 .map(|comp| {
-                    ListItem::new(comp.replacement.clone()).style(Style::default().fg(Color::Red))
+                    ListItem::new(comp.display.clone()).style(Style::default().fg(Color::Red))
                 })
                 .collect::<Vec<_>>();
 
