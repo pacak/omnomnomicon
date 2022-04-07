@@ -33,16 +33,25 @@ fn main() -> std::io::Result<()> {
     let mut terminal = Terminal::new(backend)?;
 
     let mut p = omnomnomicon::tutorial::parse_command;
-    let mut input = Readline::new(&mut p);
+    let mut input = ReadlineState::new(&mut p);
 
     loop {
         terminal.draw(|f| {
+            let widget = Readline::new(&input);
+
+            let height = widget.height_hint(20);
+
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
-                .constraints([Constraint::Min(1), Constraint::Length(12)])
+                .constraints([Constraint::Min(1), Constraint::Length(height)])
                 .split(f.size());
 
-            input.render(f, chunks[1]);
+            let mut cursor = CursorPos::Off;
+            f.render_stateful_widget(widget, chunks[1], &mut cursor);
+
+            if let CursorPos::On(pos) = cursor {
+                f.set_cursor(pos, chunks[1].y + chunks[1].height)
+            }
         })?;
 
         if !event::poll(std::time::Duration::from_millis(100))? {

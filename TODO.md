@@ -19,5 +19,3 @@ give a helper to produce a single completion: "next-"
 it's in combinators.rs module docs
 
 # document deriving macro
-
-# derive Choice for single function, doesn't make much sense but error messages are confusing

@@ -767,6 +767,14 @@ pub struct Comp {
     pub remaining: usize,
 }
 
+impl Comp {
+    /// Check if completion is simple - same replacement and display
+    ///
+    pub fn is_simple(&self) -> bool {
+        self.replacement == self.display
+    }
+}
+
 impl From<Comp> for String {
     fn from(comp: Comp) -> Self {
         String::from(comp.replacement)
