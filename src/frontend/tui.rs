@@ -344,6 +344,9 @@ impl ReadlineState {
     {
         self.outcome = apply_parser(parser, "");
         self.editor.clear();
+        if let Some(comp) = self.outcome.completions() {
+            self.editor.complete_start(comp);
+        }
     }
 
     /// read key, handle or return it
