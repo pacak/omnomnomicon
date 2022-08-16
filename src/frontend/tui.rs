@@ -85,7 +85,16 @@ pub fn keycode_to_action(key: KeyEvent) -> Option<Action<'static>> {
         | KeyCode::PageDown
         | KeyCode::Insert
         | KeyCode::Null
-        | KeyCode::Esc => None,
+        | KeyCode::Esc
+        | KeyCode::CapsLock
+        | KeyCode::ScrollLock
+        | KeyCode::NumLock
+        | KeyCode::PrintScreen
+        | KeyCode::Pause
+        | KeyCode::Menu
+        | KeyCode::KeypadBegin
+        | KeyCode::Media(_)
+        | KeyCode::Modifier(_) => None,
     }
 }
 
