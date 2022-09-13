@@ -47,6 +47,7 @@ pub enum Attr {
     Bounded,
     Literal(String),
     Via(Ident),
+    Updater(Ident),
 }
 impl Parse for Attr {
     fn parse(input: parse::ParseStream) -> Result<Self> {
@@ -64,8 +65,12 @@ impl Parse for Attr {
             let content;
             let _ = parenthesized!(content in input);
             Ok(Attr::Via(content.parse()?))
+        } else if name == "updater" {
+            let content;
+            let _ = parenthesized!(content in input);
+            Ok(Attr::Updater(content.parse()?))
         } else {
-            Err(Error::new(input.span(), "unnamed field?"))
+            Err(Error::new(input.span(), format!("Unknown kw {}", name)))
         }
     }
 }

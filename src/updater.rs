@@ -55,6 +55,8 @@ pub trait Updater {
     /// For example for a pair of `i32` `type Foo = (i32, i32)` an `Updater` is a `(bool, i32)`,
     /// where `bool` indicates if the `i32` value should replace the value in the first or the second
     /// field.
+    ///
+    /// Updater is a property of a new data, not field
     type Updater;
 
     /// Parse an updater for a current item
@@ -64,7 +66,7 @@ pub trait Updater {
     fn enter<'a>(&self, entry: &'static str, input: &'a str) -> Result<'a, Self::Updater>;
 
     /// Apply changes from [`Self::Updater`] to a current value
-    fn apply(&mut self, updater: Self::Updater);
+    fn apply(&mut self, updater: Self::Updater) -> core::result::Result<(), String>;
 }
 
 impl<T> Updater for T
@@ -78,8 +80,9 @@ where
             Parser::parse,
         )(input)
     }
-    fn apply(&mut self, updater: Self::Updater) {
+    fn apply(&mut self, updater: Self::Updater) -> core::result::Result<(), String> {
         *self = updater;
+        Ok(())
     }
 }
 
@@ -96,8 +99,9 @@ impl<T: Parser + Clone + std::fmt::Debug> Updater for Option<T> {
         )(input)
     }
 
-    fn apply(&mut self, updater: Self::Updater) {
-        *self = updater
+    fn apply(&mut self, updater: Self::Updater) -> core::result::Result<(), String> {
+        *self = updater;
+        Ok(())
     }
 }
 
@@ -117,7 +121,7 @@ impl<T: Updater + std::fmt::Debug, const N: usize> Updater for [T; N] {
         Ok((output, (key, val)))
     }
 
-    fn apply(&mut self, updater: Self::Updater) {
+    fn apply(&mut self, updater: Self::Updater) -> core::result::Result<(), String> {
         self[updater.0].apply(updater.1)
     }
 }
@@ -138,9 +142,37 @@ where
         Ok((output, (key, val)))
     }
 
-    fn apply(&mut self, (key, updater): Self::Updater) {
-        self[key].apply(updater);
+    fn apply(&mut self, (key, updater): Self::Updater) -> core::result::Result<(), String> {
+        self[key].apply(updater)
     }
+}
+
+#[test]
+fn test_updater() {
+    fn ten_percent(orig: &mut f64, new: f64) -> std::result::Result<(), String> {
+        let diff = (*orig - new) * 100.0 / (*orig);
+        if (-10.0..=10.0).contains(&diff) {
+            *orig = new;
+            Ok(())
+        } else {
+            Err(format!("Change {} -> {} is to large", orig, new))
+        }
+    }
+
+    #[derive(Debug, Updater)]
+    struct Foo {
+        #[om(updater(ten_percent))]
+        foo: f64,
+        bar: f64,
+    }
+
+    let mut payload = Foo {
+        foo: 100.0,
+        bar: 100.0,
+    };
+
+    payload.apply(FooUpdater::Foo(95.0)).unwrap();
+    payload.apply(FooUpdater::Foo(65.0)).unwrap_err();
 }
 
 // TODO HashMap

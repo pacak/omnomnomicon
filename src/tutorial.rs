@@ -373,6 +373,16 @@ impl Default for Config {
     }
 }
 
+fn ten_percent(orig: &mut u32, new: u32) -> std::result::Result<(), String> {
+    let diff = (*orig as i32 - new as i32) * 100 / (*orig as i32 + 1);
+    if (-30..=30).contains(&diff) {
+        *orig = new;
+        Ok(())
+    } else {
+        Err(format!("Change {} -> {} is to large", orig, new))
+    }
+}
+
 /// top level structure, most of the fields are accessible directly, nested fields are accessible
 /// via `.`.
 ///
@@ -382,6 +392,7 @@ impl Default for Config {
 pub struct Config {
     /// Price...
     pub price: u32,
+    #[om(updater(ten_percent))]
     pub target: u32,
     pub limits: Limits,
     pub boosting: Option<u32>,

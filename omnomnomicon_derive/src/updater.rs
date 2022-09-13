@@ -56,12 +56,20 @@ pub fn derive_updater_impl(omnom: OStruct) -> Result<TokenStream> {
     };
 
     let update_fields = fields.iter().map(|f| {
-        let OField { variant, ident, .. } = &f;
-        quote! { #updater::#variant(#ident) => self.#ident.apply(#ident) }
+        let OField {
+            variant,
+            ident,
+            updater_fn,
+            ..
+        } = &f;
+        match updater_fn {
+            Some(upd) => quote! { #updater::#variant(f) => #upd(&mut self.#ident, f) },
+            None => quote! { #updater::#variant(f) => self.#ident.apply(f) },
+        }
     });
 
     let apply_decl = quote! {
-        fn apply(&mut self, updater: Self::Updater) {
+        fn apply(&mut self, updater: Self::Updater) -> std::result::Result<(), String> {
             match updater {
                 #(#update_fields),*
             }
@@ -106,6 +114,7 @@ struct OField {
     bounded: bool,
     /// whether to skip
     skip: bool,
+    updater_fn: Option<Ident>,
 }
 
 impl Parse for OStruct {
@@ -131,6 +140,7 @@ impl Parse for OField {
         let mut docs = Vec::new();
         let mut skip = false;
         let mut bounded = false;
+        let mut updater = None;
         for attr in input.call(Attribute::parse_outer)? {
             if attr.path.is_ident("doc") {
                 let Doc(doc) = parse2(attr.tokens)?;
@@ -143,6 +153,7 @@ impl Parse for OField {
                     match a {
                         Attr::Skip => skip = true,
                         Attr::Bounded => bounded = true,
+                        Attr::Updater(upd) => updater = Some(upd),
                         Attr::Literal(_) | Attr::Via(_) => {
                             return Err(Error::new(attr.span(), "unexpected attribute"))
                         }
@@ -168,6 +179,7 @@ impl Parse for OField {
             ident,
             variant,
             skip,
+            updater_fn: updater,
         })
     }
 }
