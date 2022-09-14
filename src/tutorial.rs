@@ -390,9 +390,9 @@ fn ten_percent(orig: &u32, new: &u32) -> std::result::Result<(), String> {
 #[derive(Debug, Clone, Updater)]
 pub struct Config {
     /// Price...
-    #[om(updater(ten_percent))]
+    #[om(check(ten_percent))]
     pub price: u32,
-    #[om(updater(ten_percent))]
+    #[om(check(ten_percent))]
     pub target: u32,
     #[om(enter)]
     pub limits: Limits,
@@ -415,13 +415,13 @@ pub struct Limits {
     /// Low limit for something important
     ///
     /// Software will try to keep a value of something important above that limit
-    #[om(updater(ten_percent))]
+    #[om(check(ten_percent))]
     pub low: u32,
 
     /// High limit for something important
     ///
     /// Software will try to keep a value of something important below that limit
-    #[om(updater(ten_percent))]
+    #[om(check(ten_percent))]
     pub high: u32,
 }
 

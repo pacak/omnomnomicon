@@ -162,9 +162,9 @@ fn test_updater() {
 
     #[derive(Debug, Updater)]
     struct Foo {
-        #[om(updater(foo::ten_percent))]
+        #[om(check(foo::ten_percent))]
         foo: f64,
-        #[om(updater(ten_percent))]
+        #[om(check(ten_percent))]
         bar: f64,
     }
 

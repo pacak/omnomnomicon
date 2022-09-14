@@ -47,7 +47,7 @@ pub enum Attr {
     Bounded,
     Literal(String),
     Via(Ident),
-    Updater(Box<Expr>),
+    Check(Box<Expr>),
     Enter,
 }
 impl Parse for Attr {
@@ -66,10 +66,10 @@ impl Parse for Attr {
             let content;
             let _ = parenthesized!(content in input);
             Ok(Attr::Via(content.parse()?))
-        } else if name == "updater" {
+        } else if name == "check" {
             let content;
             let _ = parenthesized!(content in input);
-            Ok(Attr::Updater(content.parse()?))
+            Ok(Attr::Check(content.parse()?))
         } else if name == "enter" {
             Ok(Attr::Enter)
         } else {

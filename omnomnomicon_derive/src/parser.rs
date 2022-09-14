@@ -221,7 +221,7 @@ impl Parse for SimpleEnumField {
                         Attr::Bounded => {}
                         Attr::Literal(lit) => literal = Some(lit),
                         Attr::Via(x) => via = Some(x),
-                        Attr::Updater(_) => {}
+                        Attr::Check(_) => {}
                         Attr::Enter => {}
                     }
                 }
