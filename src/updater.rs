@@ -158,13 +158,21 @@ fn test_updater() {
             }
         }
     }
+
+    fn positive(_: &f64, new: &f64) -> std::result::Result<(), String> {
+        if *new > 0.0 {
+            Ok(())
+        } else {
+            Err("New value must be positive".to_owned())
+        }
+    }
     pub use foo::ten_percent;
 
     #[derive(Debug, Updater)]
     struct Foo {
         #[om(check(foo::ten_percent))]
         foo: f64,
-        #[om(check(ten_percent))]
+        #[om(check(ten_percent), check(positive))]
         bar: f64,
     }
 
@@ -175,6 +183,9 @@ fn test_updater() {
 
     payload.apply(FooUpdater::Foo(95.0)).unwrap();
     payload.apply(FooUpdater::Foo(65.0)).unwrap_err();
+
+    payload.bar = -100.0;
+    payload.apply(FooUpdater::Bar(-99.0)).unwrap_err();
 }
 
 // TODO HashMap
