@@ -56,16 +56,19 @@ pub fn derive_updater_impl(omnom: OStruct) -> Result<TokenStream> {
     };
 
     let update_fields = fields.iter().map(|f| {
-        let OField {
-            variant,
-            ident,
-            updater_fn,
-            ..
-        } = &f;
-        match updater_fn {
-            Some(upd) => quote! { #updater::#variant(f) => #upd(&mut self.#ident, f) },
-            None => quote! { #updater::#variant(f) => self.#ident.apply(f) },
+        let OField { variant, ident, .. } = &f;
+
+        let mut upd = quote! { self.#ident.apply(f) };
+        for check in f.updater_fn.iter() {
+            upd = quote! {
+                #check(&self.#ident, &f)?;
+                #upd
+            };
         }
+
+        quote! { #updater::#variant(f) => {
+            #upd
+        }}
     });
 
     let apply_decl = quote! {
@@ -114,7 +117,7 @@ struct OField {
     bounded: bool,
     /// whether to skip
     skip: bool,
-    updater_fn: Option<Ident>,
+    updater_fn: Vec<Expr>,
 }
 
 impl Parse for OStruct {
@@ -140,7 +143,7 @@ impl Parse for OField {
         let mut docs = Vec::new();
         let mut skip = false;
         let mut bounded = false;
-        let mut updater = None;
+        let mut updaters = Vec::new();
         let mut enter = false;
         for attr in input.call(Attribute::parse_outer)? {
             if attr.path.is_ident("doc") {
@@ -154,7 +157,7 @@ impl Parse for OField {
                     match a {
                         Attr::Skip => skip = true,
                         Attr::Bounded => bounded = true,
-                        Attr::Updater(upd) => updater = Some(upd),
+                        Attr::Updater(upd) => updaters.push(*upd),
                         Attr::Literal(_) | Attr::Via(_) => {
                             return Err(Error::new(attr.span(), "unexpected attribute"))
                         }
@@ -166,7 +169,7 @@ impl Parse for OField {
 
         let field = Field::parse_named(input)?;
 
-        if !(enter || updater.is_some() || skip) {
+        if !(enter || !updaters.is_empty() || skip) {
             return Err(Error::new(
                 field.span(),
                 "You need to specify either `enter` or `updater` attribute",
@@ -190,7 +193,7 @@ impl Parse for OField {
             ident,
             variant,
             skip,
-            updater_fn: updater,
+            updater_fn: updaters,
         })
     }
 }

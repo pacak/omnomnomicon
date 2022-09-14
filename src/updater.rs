@@ -148,19 +148,21 @@ where
 
 #[test]
 fn test_updater() {
-    fn ten_percent(orig: &mut f64, new: f64) -> std::result::Result<(), String> {
-        let diff = (*orig - new) * 100.0 / (*orig);
-        if (-10.0..=10.0).contains(&diff) {
-            *orig = new;
-            Ok(())
-        } else {
-            Err(format!("Change {} -> {} is to large", orig, new))
+    mod foo {
+        pub fn ten_percent(orig: &f64, new: &f64) -> std::result::Result<(), String> {
+            let diff = (*orig - *new) * 100.0 / (*orig);
+            if (-10.0..=10.0).contains(&diff) {
+                Ok(())
+            } else {
+                Err(format!("Change {} -> {} is to large", orig, new))
+            }
         }
     }
+    pub use foo::ten_percent;
 
     #[derive(Debug, Updater)]
     struct Foo {
-        #[om(updater(ten_percent))]
+        #[om(updater(foo::ten_percent))]
         foo: f64,
         #[om(updater(ten_percent))]
         bar: f64,

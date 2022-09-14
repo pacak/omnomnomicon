@@ -373,10 +373,9 @@ impl Default for Config {
     }
 }
 
-fn ten_percent(orig: &mut u32, new: u32) -> std::result::Result<(), String> {
-    let diff = (*orig as i32 - new as i32) * 100 / (*orig as i32);
+fn ten_percent(orig: &u32, new: &u32) -> std::result::Result<(), String> {
+    let diff = (*orig as i32 - *new as i32) * 100 / (*orig as i32);
     if (-10..=10).contains(&diff) {
-        *orig = new;
         Ok(())
     } else {
         Err(format!("Change {} -> {} is to large", orig, new))

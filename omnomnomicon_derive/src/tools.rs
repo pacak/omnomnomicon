@@ -47,7 +47,7 @@ pub enum Attr {
     Bounded,
     Literal(String),
     Via(Ident),
-    Updater(Ident),
+    Updater(Box<Expr>),
     Enter,
 }
 impl Parse for Attr {
