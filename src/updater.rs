@@ -18,7 +18,6 @@
 use std::borrow::Cow;
 
 use crate::prelude::*;
-use crate::Parser;
 use crate::Result;
 
 /// Entry point for interactive structure updated
@@ -163,6 +162,7 @@ fn test_updater() {
     struct Foo {
         #[om(updater(ten_percent))]
         foo: f64,
+        #[om(updater(ten_percent))]
         bar: f64,
     }
 

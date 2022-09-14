@@ -141,6 +141,7 @@ impl Parse for OField {
         let mut skip = false;
         let mut bounded = false;
         let mut updater = None;
+        let mut enter = false;
         for attr in input.call(Attribute::parse_outer)? {
             if attr.path.is_ident("doc") {
                 let Doc(doc) = parse2(attr.tokens)?;
@@ -157,16 +158,26 @@ impl Parse for OField {
                         Attr::Literal(_) | Attr::Via(_) => {
                             return Err(Error::new(attr.span(), "unexpected attribute"))
                         }
+                        Attr::Enter => enter = true,
                     }
                 }
             }
         }
 
         let field = Field::parse_named(input)?;
+
+        if !(enter || updater.is_some() || skip) {
+            return Err(Error::new(
+                field.span(),
+                "You need to specify either `enter` or `updater` attribute",
+            ));
+        }
+
         let ident = match field.ident {
             Some(ident) => ident,
             None => return Err(Error::new(field.span(), "named field expected")),
         };
+
         let variant = Ident::new(&camelize(&ident.to_string()), ident.span());
         Ok(OField {
             docs: if docs.is_empty() {

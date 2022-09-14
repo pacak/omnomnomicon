@@ -48,6 +48,7 @@ pub enum Attr {
     Literal(String),
     Via(Ident),
     Updater(Ident),
+    Enter,
 }
 impl Parse for Attr {
     fn parse(input: parse::ParseStream) -> Result<Self> {
@@ -69,6 +70,8 @@ impl Parse for Attr {
             let content;
             let _ = parenthesized!(content in input);
             Ok(Attr::Updater(content.parse()?))
+        } else if name == "enter" {
+            Ok(Attr::Enter)
         } else {
             Err(Error::new(input.span(), format!("Unknown kw {}", name)))
         }

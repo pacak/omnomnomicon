@@ -374,8 +374,8 @@ impl Default for Config {
 }
 
 fn ten_percent(orig: &mut u32, new: u32) -> std::result::Result<(), String> {
-    let diff = (*orig as i32 - new as i32) * 100 / (*orig as i32 + 1);
-    if (-30..=30).contains(&diff) {
+    let diff = (*orig as i32 - new as i32) * 100 / (*orig as i32);
+    if (-10..=10).contains(&diff) {
         *orig = new;
         Ok(())
     } else {
@@ -391,13 +391,18 @@ fn ten_percent(orig: &mut u32, new: u32) -> std::result::Result<(), String> {
 #[derive(Debug, Clone, Updater)]
 pub struct Config {
     /// Price...
+    #[om(updater(ten_percent))]
     pub price: u32,
     #[om(updater(ten_percent))]
     pub target: u32,
+    #[om(enter)]
     pub limits: Limits,
+    #[om(skip)]
     pub boosting: Option<u32>,
     /// A set of magical coefficients
+    #[om(enter)]
     pub coefficients: [u32; 5],
+    #[om(enter)]
     pub enum_map: EnumMap<Key, u32>,
 }
 
@@ -411,11 +416,13 @@ pub struct Limits {
     /// Low limit for something important
     ///
     /// Software will try to keep a value of something important above that limit
+    #[om(updater(ten_percent))]
     pub low: u32,
 
     /// High limit for something important
     ///
     /// Software will try to keep a value of something important below that limit
+    #[om(updater(ten_percent))]
     pub high: u32,
 }
 
