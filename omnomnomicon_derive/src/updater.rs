@@ -55,13 +55,16 @@ pub fn derive_updater_impl(omnom: OStruct) -> Result<TokenStream> {
         }
     };
 
-    let update_fields = fields.iter().map(|f| {
-        let OField { variant, ident, .. } = &f;
+    let update_fields = fields.iter().map(|&f| {
+        let OField {
+            variant, ident, ty, ..
+        } = f;
 
         let mut upd = quote! { self.#ident.apply(f) };
         for check in f.checks.iter() {
             upd = quote! {
-                #check(&self.#ident, &f)?;
+                let check_fn: fn(&#ty, &#ty) -> std::result::Result<(), String> = #check;
+                check_fn(&self.#ident, &f)?;
                 #upd
             };
         }

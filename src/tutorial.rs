@@ -121,7 +121,7 @@ pub fn parse_command(input: &str) -> Result<Command> {
         mask_cmd,
         say_cmd,
         iv_cmd(&Config {
-            price: 10,
+            price: Price(10),
             boosting: Some(123),
             target: 10,
             limits: Limits {
@@ -360,7 +360,7 @@ impl Default for Limits {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            price: 50,
+            price: Price(50),
             target: 150,
             limits: Limits::default(),
             boosting: None,
@@ -372,6 +372,9 @@ impl Default for Config {
         }
     }
 }
+
+#[derive(Debug, Clone, omnomnomicon::Parser)]
+pub struct Price(u32);
 
 fn ten_percent(orig: &u32, new: &u32) -> std::result::Result<(), String> {
     let diff = (*orig as i32 - *new as i32) * 100 / (*orig as i32);
@@ -390,8 +393,8 @@ fn ten_percent(orig: &u32, new: &u32) -> std::result::Result<(), String> {
 #[derive(Debug, Clone, Updater)]
 pub struct Config {
     /// Price...
-    #[om(check(ten_percent))]
-    pub price: u32,
+    #[om(check(|cur, new| ten_percent(&cur.0, &new.0)))]
+    pub price: Price,
     #[om(check(ten_percent))]
     pub target: u32,
     #[om(enter)]
