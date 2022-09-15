@@ -393,7 +393,7 @@ fn ten_percent(orig: &u32, new: &u32) -> std::result::Result<(), String> {
 #[derive(Debug, Clone, Updater)]
 pub struct Config {
     /// Price...
-    #[om(check((|cur: &Price, new: &Price| ten_percent(&cur.0, &new.0))))]
+    #[om(check(|cur, new| ten_percent(&cur.0, &new.0)))]
     pub price: Price,
     #[om(check(ten_percent))]
     pub target: u32,
