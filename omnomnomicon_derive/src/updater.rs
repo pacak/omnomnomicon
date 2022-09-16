@@ -63,7 +63,7 @@ pub fn derive_updater_impl(omnom: OStruct) -> Result<TokenStream> {
         let mut upd = quote! { self.#ident.apply(f) };
         for check in f.checks.iter() {
             upd = quote! {
-                let check_fn: fn(&#ty, &#ty) -> std::result::Result<(), String> = #check;
+                let check_fn: &dyn Fn(&#ty, &#ty) -> std::result::Result<(), String> = &#check;
                 check_fn(&self.#ident, &f)?;
                 #upd
             };

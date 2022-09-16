@@ -401,7 +401,7 @@ pub struct Config {
     /// Price...
     #[om(check(|cur, new| ten_percent(&cur.0, &new.0)))]
     pub price: Price,
-    #[om(check(|cur, new| percent(15.0)(cur, new)))]
+    #[om(check(percent(15.0)))]
     pub target: u32,
     #[om(enter)]
     pub limits: Limits,
