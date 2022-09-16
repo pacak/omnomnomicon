@@ -376,13 +376,19 @@ impl Default for Config {
 #[derive(Debug, Clone, omnomnomicon::Parser)]
 pub struct Price(u32);
 
-fn ten_percent(orig: &u32, new: &u32) -> std::result::Result<(), String> {
-    let diff = (*orig as i32 - *new as i32) * 100 / (*orig as i32);
-    if (-10..=10).contains(&diff) {
-        Ok(())
-    } else {
-        Err(format!("Change {} -> {} is to large", orig, new))
+fn percent(percent: f64) -> impl Fn(&u32, &u32) -> std::result::Result<(), String> {
+    move |orig: &u32, new: &u32| {
+        let diff = (*orig as f64 - *new as f64) * 100.0 / (*orig as f64);
+        if (-percent..=percent).contains(&diff) {
+            Ok(())
+        } else {
+            Err(format!("Change {} -> {} is to large", orig, new))
+        }
     }
+}
+
+fn ten_percent(orig: &u32, new: &u32) -> std::result::Result<(), String> {
+    percent(10.0)(orig, new)
 }
 
 /// top level structure, most of the fields are accessible directly, nested fields are accessible
@@ -395,7 +401,7 @@ pub struct Config {
     /// Price...
     #[om(check(|cur, new| ten_percent(&cur.0, &new.0)))]
     pub price: Price,
-    #[om(check(ten_percent))]
+    #[om(check(|cur, new| percent(15.0)(cur, new)))]
     pub target: u32,
     #[om(enter)]
     pub limits: Limits,
