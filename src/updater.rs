@@ -125,6 +125,71 @@ impl<T: Updater + std::fmt::Debug, const N: usize> Updater for [T; N] {
     }
 }
 
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
+/// Updater for for a map like structure
+pub enum UpdateOrInsert<K, T> {
+    /// Delete item at key `K`
+    Del(K),
+    /// Insert an item `T` to key `K`
+    Ins(K, T),
+    /// Update item at key `K` with updater `U`
+    Update(K, T),
+}
+
+impl<T: Updater<Updater = T> + Parser + std::fmt::Debug> Updater for Vec<T> {
+    type Updater = UpdateOrInsert<usize, T>;
+
+    fn enter<'a>(&self, entry: &'static str, input: &'a str) -> Result<'a, Self::Updater> {
+        let label_ix = || Some(Cow::from(format!("vec index, 0..{}", self.len())));
+        let parse_ix = || with_hint(label_ix, number::<usize>);
+
+        let (output, _) = literal(entry)(input)?;
+        let (output, ix) = output.bind_space(true, parse_ix())?;
+        let ops = choice((literal("ins"), literal("del"), literal("upd")));
+        let (output, op) = output.bind_space(true, ops)?;
+        match op {
+            "ins" => {
+                let (output, val) = output.bind_space(true, label("value to insert", T::parse))?;
+                Ok((output, UpdateOrInsert::Ins(ix, val)))
+            }
+            "del" => Ok((output, UpdateOrInsert::Del(ix))),
+            "upd" => {
+                let (output, val) = output.bind_space(true, label("value to replace", T::parse))?;
+                Ok((output, UpdateOrInsert::Update(ix, val)))
+            }
+            _ => Terminate::fail(output.input, "unreachable"),
+        }
+    }
+
+    fn apply(&mut self, updater: Self::Updater) -> core::result::Result<(), String> {
+        match updater {
+            UpdateOrInsert::Del(ix) => {
+                if ix >= self.len() {
+                    Err(format!("{} is not a valid index in 0..{}", ix, self.len()))
+                } else {
+                    self.remove(ix);
+                    Ok(())
+                }
+            }
+            UpdateOrInsert::Ins(ix, t) => {
+                if ix > self.len() {
+                    Err(format!("{} is not a valid index in 0..{}", ix, self.len()))
+                } else {
+                    self.insert(ix, t);
+                    Ok(())
+                }
+            }
+            UpdateOrInsert::Update(ix, u) => {
+                if ix > self.len() {
+                    Err(format!("{} is not a valid index in 0..{}", ix, self.len()))
+                } else {
+                    self[ix].apply(u)
+                }
+            }
+        }
+    }
+}
+
 #[cfg(feature = "enum-map")]
 impl<K, V> Updater for enum_map::EnumMap<K, V>
 where

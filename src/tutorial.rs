@@ -124,6 +124,7 @@ pub fn parse_command(input: &str) -> Result<Command> {
             price: Price(10),
             boosting: Some(123),
             target: 10,
+            items: vec![1, 2, 3],
             limits: Limits {
                 high: 10,
                 low: 10,
@@ -362,6 +363,7 @@ impl Default for Config {
         Self {
             price: Price(50),
             target: 150,
+            items: Vec::new(),
             limits: Limits::default(),
             boosting: None,
             coefficients: [10, 20, 30, 40, 50],
@@ -403,6 +405,10 @@ pub struct Config {
     pub price: Price,
     #[om(check(percent(15.0)))]
     pub target: u32,
+
+    #[om(enter)]
+    pub items: Vec<u32>,
+
     #[om(enter)]
     pub limits: Limits,
     #[om(skip)]
@@ -481,5 +487,28 @@ mod test {
             .map(|c| c.replacement.to_string())
             .collect::<Vec<_>>();
         assert_eq!(comps, ["ask", "apple"]);
+    }
+
+    #[test]
+    fn can_update_vec() {
+        #[derive(Debug, Clone, Updater)]
+        pub struct Foo {
+            #[om(enter)]
+            xs: Vec<u32>,
+        }
+
+        let mut foo = Foo {
+            xs: vec![1, 2, 3, 4],
+        };
+
+        foo.apply(FooUpdater::Xs(UpdateOrInsert::Ins(0, 100)))
+            .unwrap();
+
+        foo.apply(FooUpdater::Xs(UpdateOrInsert::Del(3))).unwrap();
+
+        foo.apply(FooUpdater::Xs(UpdateOrInsert::Update(0, 99)))
+            .unwrap();
+
+        assert_eq!(&foo.xs, &[99, 1, 2, 4]);
     }
 }
