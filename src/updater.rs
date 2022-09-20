@@ -44,6 +44,42 @@ where
     move |input| Updater::enter(item, label, input)
 }
 
+/// Updater trait for a collection, mostly to be able to update single items inside collections
+/// (vector, etc)
+pub trait Checker: Updater {
+    /// Item type
+    type Item;
+
+    /// check functi
+    fn check<C>(&self, updater: &Self::Updater, check: &C) -> std::result::Result<(), String>
+    where
+        C: Fn(&Self::Item, &Self::Item) -> std::result::Result<(), String>;
+}
+
+impl<T: Updater<Updater = T> + Parser + std::fmt::Debug> Checker for Vec<T> {
+    type Item = T;
+
+    fn check<C>(&self, updater: &Self::Updater, check: &C) -> std::result::Result<(), String>
+    where
+        C: Fn(&Self::Item, &Self::Item) -> std::result::Result<(), String>,
+    {
+        match updater {
+            UpdateOrInsert::Del(_) | UpdateOrInsert::Ins(_, _) => Ok(()),
+            UpdateOrInsert::Update(ix, new) => {
+                if *ix >= self.len() {
+                    Err(format!(
+                        "{} is not a valid index for vector of size {}",
+                        ix,
+                        self.len()
+                    ))
+                } else {
+                    check(&self[*ix], new)
+                }
+            }
+        }
+    }
+}
+
 /// Interactive structure updater trait
 ///
 /// This trait creates interactive update menu for a struct
@@ -61,7 +97,7 @@ pub trait Updater {
     /// Parse an updater for a current item
     ///
     /// For structures containing multiple fields first thing `enter` method shoud do is to
-    /// parse `entry` as [`literal`] from the input and ignore it's value
+    /// parse `entry` as [`literal`] from the input and ignore its value
     fn enter<'a>(&self, entry: &'static str, input: &'a str) -> Result<'a, Self::Updater>;
 
     /// Apply changes from [`Self::Updater`] to a current value

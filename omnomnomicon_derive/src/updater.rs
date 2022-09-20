@@ -57,20 +57,29 @@ pub fn derive_updater_impl(omnom: OStruct) -> Result<TokenStream> {
 
     let update_fields = fields.iter().map(|&f| {
         let OField {
-            variant, ident, ty, ..
+            variant,
+            ident,
+            enter,
+            ty,
+            ..
         } = f;
 
-        let mut upd = quote! { self.#ident.apply(f) };
-        for check in f.checks.iter() {
-            upd = quote! {
-                let check_fn: &dyn Fn(&#ty, &#ty) -> std::result::Result<(), String> = &#check;
-                check_fn(&self.#ident, &f)?;
-                #upd
-            };
-        }
+        let checks = f.checks.iter().map(|check| {
+            if *enter {
+                quote! {
+                    self.#ident.check(&f, &#check)?;
+                }
+            } else {
+                quote! {
+                    let check_fn: &dyn Fn(&#ty, &#ty) -> std::result::Result<(), String> = &#check;
+                    check_fn(&self.#ident, &f)?;
+                }
+            }
+        });
 
         quote! { #updater::#variant(f) => {
-            #upd
+            #(#checks)*
+            self.#ident.apply(f)
         }}
     });
 
@@ -121,6 +130,7 @@ struct OField {
     /// whether to skip
     skip: bool,
     checks: Vec<Expr>,
+    enter: bool,
 }
 
 impl Parse for OStruct {
@@ -197,6 +207,7 @@ impl Parse for OField {
             variant,
             skip,
             checks,
+            enter,
         })
     }
 }

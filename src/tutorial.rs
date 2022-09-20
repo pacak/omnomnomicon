@@ -406,7 +406,7 @@ pub struct Config {
     #[om(check(percent(15.0)))]
     pub target: u32,
 
-    #[om(enter)]
+    #[om(enter, check(ten_percent))]
     pub items: Vec<u32>,
 
     #[om(enter)]
