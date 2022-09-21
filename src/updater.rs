@@ -99,11 +99,12 @@ where
     let mut copy = item.clone();
     let mut errors = Vec::new();
     copy.apply(diff, &mut errors);
+    copy.check(&mut errors);
     if errors.is_empty() {
-        Err(errors)
-    } else {
         std::mem::swap(item, &mut copy);
         Ok(())
+    } else {
+        Err(errors)
     }
 }
 
@@ -151,7 +152,7 @@ pub trait Updater {
     ///
     /// error messages look like
     /// "message"/field/AdjConfig/TraderConfig
-    fn check(&self, acc: &mut Vec<String>);
+    fn check(&self, errors: &mut Vec<String>);
 }
 
 impl<T> Updater for T

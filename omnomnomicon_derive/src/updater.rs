@@ -82,16 +82,9 @@ pub fn derive_updater_impl(omnom: OStruct) -> Result<TokenStream> {
             }
         });
 
-        let global_check = if top_checks.is_empty() {
-            quote!()
-        } else {
-            quote!(self.check(errors))
-        };
-
         quote! { #updater::#variant(f) => {
             #(#checks)*
             self.#ident.apply(f, errors);
-            #global_check
         }}
     });
 
@@ -100,7 +93,6 @@ pub fn derive_updater_impl(omnom: OStruct) -> Result<TokenStream> {
             match updater {
                 #(#update_fields),*
             }
-            self.check(errors);
         }
     };
 
@@ -113,6 +105,11 @@ pub fn derive_updater_impl(omnom: OStruct) -> Result<TokenStream> {
         }
     });
 
+    let child_checks = fields.iter().map(|&f| {
+        let OField { ident, .. } = f;
+        quote! { self.#ident.check(errors); }
+    });
+
     let r = quote! {
         #updater_decl
 
@@ -123,6 +120,7 @@ pub fn derive_updater_impl(omnom: OStruct) -> Result<TokenStream> {
 
             fn check(&self, #[allow(unused)] errors: &mut Vec<String>) {
                 #(#top_level_checks)*
+                #(#child_checks)*
             }
         }
     };

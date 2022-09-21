@@ -512,16 +512,15 @@ mod test {
             xs: vec![1, 2, 3, 4],
         };
 
-        let mut errors = Vec::new();
-        foo.apply(FooUpdater::Xs(UpdateOrInsert::Ins(0, 100)), &mut errors);
-        foo.apply(FooUpdater::Xs(UpdateOrInsert::Del(3)), &mut errors);
-        foo.apply(FooUpdater::Xs(UpdateOrInsert::Update(0, 99)), &mut errors);
-        assert!(errors.is_empty());
+        apply_change(&mut foo, FooUpdater::Xs(UpdateOrInsert::Ins(0, 100))).unwrap();
+        apply_change(&mut foo, FooUpdater::Xs(UpdateOrInsert::Del(3))).unwrap();
+        apply_change(&mut foo, FooUpdater::Xs(UpdateOrInsert::Update(0, 99))).unwrap();
+
         assert_eq!(&foo.xs, &[99, 1, 2, 4]);
 
-        foo.apply(FooUpdater::Xs(UpdateOrInsert::Ins(0, 100)), &mut errors);
-        assert_eq!(&foo.xs, &[100, 99, 1, 2, 4]);
-        assert!(!errors.is_empty());
+        apply_change(&mut foo, FooUpdater::Xs(UpdateOrInsert::Ins(0, 100))).unwrap_err();
+        // no change
+        assert_eq!(&foo.xs, &[99, 1, 2, 4]);
     }
 }
 
