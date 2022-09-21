@@ -493,7 +493,16 @@ mod test {
 
     #[test]
     fn can_update_vec() {
+        fn low_sum(foo: &Foo) -> std::result::Result<(), String> {
+            if foo.xs.iter().sum::<u32>() > 200 {
+                Err("Sum must be low".to_owned())
+            } else {
+                Ok(())
+            }
+        }
+
         #[derive(Debug, Clone, Updater)]
+        #[om(check(low_sum))]
         pub struct Foo {
             #[om(enter)]
             xs: Vec<u32>,
@@ -508,8 +517,11 @@ mod test {
         foo.apply(FooUpdater::Xs(UpdateOrInsert::Del(3)), &mut errors);
         foo.apply(FooUpdater::Xs(UpdateOrInsert::Update(0, 99)), &mut errors);
         assert!(errors.is_empty());
-
         assert_eq!(&foo.xs, &[99, 1, 2, 4]);
+
+        foo.apply(FooUpdater::Xs(UpdateOrInsert::Ins(0, 100)), &mut errors);
+        assert_eq!(&foo.xs, &[100, 99, 1, 2, 4]);
+        assert!(!errors.is_empty());
     }
 }
 

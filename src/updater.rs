@@ -88,6 +88,25 @@ impl<T: Updater<Updater = T> + Parser + std::fmt::Debug> Checker for Vec<T> {
     }
 }
 
+/// Apply diff to an item or return all encountered errors
+pub fn apply_change<T>(
+    item: &mut T,
+    diff: <T as Updater>::Updater,
+) -> std::result::Result<(), Vec<String>>
+where
+    T: Updater + Clone,
+{
+    let mut copy = item.clone();
+    let mut errors = Vec::new();
+    copy.apply(diff, &mut errors);
+    if errors.is_empty() {
+        Err(errors)
+    } else {
+        std::mem::swap(item, &mut copy);
+        Ok(())
+    }
+}
+
 /*
 
 update field with type safe updater coming from the omnomnomicon
