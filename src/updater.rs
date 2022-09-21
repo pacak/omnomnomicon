@@ -51,7 +51,11 @@ pub trait Checker: Updater {
     type Item;
 
     /// check functi
-    fn check<C>(&self, updater: &Self::Updater, check: &C) -> std::result::Result<(), String>
+    fn element_check<C>(
+        &self,
+        updater: &Self::Updater,
+        check: &C,
+    ) -> std::result::Result<(), String>
     where
         C: Fn(&Self::Item, &Self::Item) -> std::result::Result<(), String>;
 }
@@ -59,12 +63,15 @@ pub trait Checker: Updater {
 impl<T: Updater<Updater = T> + Parser + std::fmt::Debug> Checker for Vec<T> {
     type Item = T;
 
-    fn check<C>(&self, updater: &Self::Updater, check: &C) -> std::result::Result<(), String>
+    fn element_check<C>(
+        &self,
+        updater: &Self::Updater,
+        check: &C,
+    ) -> std::result::Result<(), String>
     where
         C: Fn(&Self::Item, &Self::Item) -> std::result::Result<(), String>,
     {
         match updater {
-            UpdateOrInsert::Del(_) | UpdateOrInsert::Ins(_, _) => Ok(()),
             UpdateOrInsert::Update(ix, new) => {
                 if *ix >= self.len() {
                     Err(format!(
@@ -76,9 +83,27 @@ impl<T: Updater<Updater = T> + Parser + std::fmt::Debug> Checker for Vec<T> {
                     check(&self[*ix], new)
                 }
             }
+            UpdateOrInsert::Del(_) | UpdateOrInsert::Ins(_, _) => Ok(()),
         }
     }
 }
+
+/*
+
+update field with type safe updater coming from the omnomnomicon
+
+sanity check on a field - takes old and new value, returns a vec of errors,
+field sanity checkers can access nearby fields from self in scope
+
+sanity check on a whole structure - attach them on top, runs every time there's an
+update or at any time with check call - do we care about access to old/new values?
+For standalone check those won't be available
+
+bubble up error messages building path to a problematic field
+
+annotation to "no check needed here" - for bools and such
+
+*/
 
 /// Interactive structure updater trait
 ///
@@ -101,7 +126,13 @@ pub trait Updater {
     fn enter<'a>(&self, entry: &'static str, input: &'a str) -> Result<'a, Self::Updater>;
 
     /// Apply changes from [`Self::Updater`] to a current value
-    fn apply(&mut self, updater: Self::Updater) -> core::result::Result<(), String>;
+    fn apply(&mut self, updater: Self::Updater, errors: &mut Vec<String>);
+
+    /// accumulate error message from this structure
+    ///
+    /// error messages look like
+    /// "message"/field/AdjConfig/TraderConfig
+    fn check(&self, acc: &mut Vec<String>);
 }
 
 impl<T> Updater for T
@@ -115,10 +146,12 @@ where
             Parser::parse,
         )(input)
     }
-    fn apply(&mut self, updater: Self::Updater) -> core::result::Result<(), String> {
+
+    fn apply(&mut self, updater: Self::Updater, _errors: &mut Vec<String>) {
         *self = updater;
-        Ok(())
     }
+    // nothing to do here
+    fn check(&self, _errors: &mut Vec<String>) {}
 }
 
 impl<T: Parser + Clone + std::fmt::Debug> Updater for Option<T> {
@@ -134,10 +167,11 @@ impl<T: Parser + Clone + std::fmt::Debug> Updater for Option<T> {
         )(input)
     }
 
-    fn apply(&mut self, updater: Self::Updater) -> core::result::Result<(), String> {
+    fn apply(&mut self, updater: Self::Updater, _errors: &mut Vec<String>) {
         *self = updater;
-        Ok(())
     }
+
+    fn check(&self, _errors: &mut Vec<String>) {}
 }
 
 impl<T: Updater + std::fmt::Debug, const N: usize> Updater for [T; N] {
@@ -156,9 +190,11 @@ impl<T: Updater + std::fmt::Debug, const N: usize> Updater for [T; N] {
         Ok((output, (key, val)))
     }
 
-    fn apply(&mut self, updater: Self::Updater) -> core::result::Result<(), String> {
-        self[updater.0].apply(updater.1)
+    fn apply(&mut self, updater: Self::Updater, errors: &mut Vec<String>) {
+        self[updater.0].apply(updater.1, errors)
     }
+
+    fn check(&self, _errors: &mut Vec<String>) {}
 }
 
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
@@ -197,33 +233,33 @@ impl<T: Updater<Updater = T> + Parser + std::fmt::Debug> Updater for Vec<T> {
         }
     }
 
-    fn apply(&mut self, updater: Self::Updater) -> core::result::Result<(), String> {
+    fn apply(&mut self, updater: Self::Updater, errors: &mut Vec<String>) {
         match updater {
             UpdateOrInsert::Del(ix) => {
                 if ix >= self.len() {
-                    Err(format!("{} is not a valid index in 0..{}", ix, self.len()))
+                    errors.push(format!("{} is not a valid index in 0..{}", ix, self.len()))
                 } else {
                     self.remove(ix);
-                    Ok(())
                 }
             }
             UpdateOrInsert::Ins(ix, t) => {
                 if ix > self.len() {
-                    Err(format!("{} is not a valid index in 0..{}", ix, self.len()))
+                    errors.push(format!("{} is not a valid index in 0..{}", ix, self.len()))
                 } else {
                     self.insert(ix, t);
-                    Ok(())
                 }
             }
             UpdateOrInsert::Update(ix, u) => {
                 if ix > self.len() {
-                    Err(format!("{} is not a valid index in 0..{}", ix, self.len()))
+                    errors.push(format!("{} is not a valid index in 0..{}", ix, self.len()))
                 } else {
-                    self[ix].apply(u)
+                    self[ix].apply(u, errors)
                 }
             }
         }
     }
+
+    fn check(&self, _errors: &mut Vec<String>) {}
 }
 
 #[cfg(feature = "enum-map")]
@@ -242,9 +278,11 @@ where
         Ok((output, (key, val)))
     }
 
-    fn apply(&mut self, (key, updater): Self::Updater) -> core::result::Result<(), String> {
-        self[key].apply(updater)
+    fn apply(&mut self, (key, updater): Self::Updater, errors: &mut Vec<String>) {
+        self[key].apply(updater, errors)
     }
+
+    fn check(&self, _errors: &mut Vec<String>) {}
 }
 
 #[test]
@@ -282,11 +320,17 @@ fn test_updater() {
         bar: 100.0,
     };
 
-    payload.apply(FooUpdater::Foo(95.0)).unwrap();
-    payload.apply(FooUpdater::Foo(65.0)).unwrap_err();
+    let mut errors = Vec::new();
+
+    payload.apply(FooUpdater::Foo(95.0), &mut errors);
+    assert!(errors.is_empty());
+    payload.apply(FooUpdater::Foo(65.0), &mut errors);
+    assert!(!errors.is_empty());
+    errors.clear();
 
     payload.bar = -100.0;
-    payload.apply(FooUpdater::Bar(-99.0)).unwrap_err();
+    payload.apply(FooUpdater::Bar(-99.0), &mut errors);
+    assert!(!errors.is_empty());
 }
 
 // TODO HashMap

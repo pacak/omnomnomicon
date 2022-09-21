@@ -1,3 +1,4 @@
+#![allow(clippy::blacklisted_name)]
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 use omnomnomicon::prelude::*;
@@ -86,10 +87,16 @@ criterion_group! {
         bench_number_label,
 }
 
+fn ok(_a: &u32, _b: &u32) -> std::result::Result<(), String> {
+    Ok(())
+}
+
 fn bench_updater_struct(c: &mut Criterion) {
-    #[derive(Updater, Copy, Clone)]
+    #[derive(Updater, Copy, Clone, Debug)]
     struct Foo {
+        #[om(check(ok))]
         bar: u32,
+        #[om(check(ok))]
         baz: u32,
     }
     let input = "iv baz 50";

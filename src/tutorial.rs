@@ -411,8 +411,10 @@ pub struct Config {
 
     #[om(enter)]
     pub limits: Limits,
+
     #[om(skip)]
     pub boosting: Option<u32>,
+
     /// A set of magical coefficients
     #[om(enter)]
     pub coefficients: [u32; 5],
@@ -501,14 +503,36 @@ mod test {
             xs: vec![1, 2, 3, 4],
         };
 
-        foo.apply(FooUpdater::Xs(UpdateOrInsert::Ins(0, 100)))
-            .unwrap();
-
-        foo.apply(FooUpdater::Xs(UpdateOrInsert::Del(3))).unwrap();
-
-        foo.apply(FooUpdater::Xs(UpdateOrInsert::Update(0, 99)))
-            .unwrap();
+        let mut errors = Vec::new();
+        foo.apply(FooUpdater::Xs(UpdateOrInsert::Ins(0, 100)), &mut errors);
+        foo.apply(FooUpdater::Xs(UpdateOrInsert::Del(3)), &mut errors);
+        foo.apply(FooUpdater::Xs(UpdateOrInsert::Update(0, 99)), &mut errors);
+        assert!(errors.is_empty());
 
         assert_eq!(&foo.xs, &[99, 1, 2, 4]);
     }
+}
+
+fn must_xor(s: &Config2) -> std::result::Result<(), String> {
+    if s.left ^ s.right {
+        Ok(())
+    } else {
+        Err("fields must xor".to_owned())
+    }
+}
+
+/// top level structure, most of the fields are accessible directly, nested fields are accessible
+/// via `.`.
+///
+/// doc comments are accessible via `?`
+///
+#[derive(Debug, Clone, Updater)]
+#[om(check(must_xor))]
+pub struct Config2 {
+    #[om(enter, check(ten_percent))]
+    pub items: Vec<u32>,
+    #[om(okay)]
+    pub left: bool,
+    #[om(okay)]
+    pub right: bool,
 }

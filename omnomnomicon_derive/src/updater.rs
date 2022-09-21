@@ -8,6 +8,7 @@ pub fn derive_updater_impl(omnom: OStruct) -> Result<TokenStream> {
         ident,
         updater,
         fields,
+        top_checks,
         ..
     } = omnom;
 
@@ -67,29 +68,50 @@ pub fn derive_updater_impl(omnom: OStruct) -> Result<TokenStream> {
         let checks = f.checks.iter().map(|check| {
             if *enter {
                 quote! {
-                    self.#ident.check(&f, &#check)?;
+                    if let Err(msg) = self.#ident.element_check(&f, &#check) {
+                        errors.push(msg);
+                    }
                 }
             } else {
                 quote! {
                     let check_fn: &dyn Fn(&#ty, &#ty) -> std::result::Result<(), String> = &#check;
-                    check_fn(&self.#ident, &f)?;
+                    if let Err(msg) = check_fn(&self.#ident, &f) {
+                        errors.push(msg);
+                    }
                 }
             }
         });
 
+        let global_check = if top_checks.is_empty() {
+            quote!()
+        } else {
+            quote!(self.check(errors))
+        };
+
         quote! { #updater::#variant(f) => {
             #(#checks)*
-            self.#ident.apply(f)
+            self.#ident.apply(f, errors);
+            #global_check
         }}
     });
 
     let apply_decl = quote! {
-        fn apply(&mut self, updater: Self::Updater) -> std::result::Result<(), String> {
+        fn apply(&mut self, updater: Self::Updater, errors: &mut Vec<String>)  {
             match updater {
                 #(#update_fields),*
             }
+            self.check(errors);
         }
     };
+
+    let top_level_checks = top_checks.iter().map(|check| {
+        quote! {
+            let check_fn: &dyn Fn(&Self) -> std::result::Result<(), String> = &#check;
+            if let Err(msg) = check_fn(self) {
+                errors.push(msg);
+            }
+        }
+    });
 
     let r = quote! {
         #updater_decl
@@ -98,6 +120,10 @@ pub fn derive_updater_impl(omnom: OStruct) -> Result<TokenStream> {
             type Updater = #updater;
             #make_decl
             #apply_decl
+
+            fn check(&self, #[allow(unused)] errors: &mut Vec<String>) {
+                #(#top_level_checks)*
+            }
         }
     };
     // println!("{}", &r);
@@ -109,6 +135,7 @@ pub struct OStruct {
     span: Span,
     ident: Ident,
     updater: Ident,
+    top_checks: Vec<Expr>,
     fields: Punctuated<OField, Token![,]>,
 }
 
@@ -124,9 +151,6 @@ struct OField {
     ty: Type,
     /// documentation string, if present, `"docu"`
     docs: Option<String>,
-    /// whether to add a bound check, currently unused
-    #[allow(dead_code)]
-    bounded: bool,
     /// whether to skip
     skip: bool,
     checks: Vec<Expr>,
@@ -135,17 +159,32 @@ struct OField {
 
 impl Parse for OStruct {
     fn parse(input: parse::ParseStream) -> Result<Self> {
-        let _attrs = input.call(Attribute::parse_outer)?;
+        let mut top_checks = Vec::new();
+        for attr in input.call(Attribute::parse_outer)? {
+            if attr.path.is_ident("om") {
+                attr.parse_args_with(|input: parse::ParseStream| loop {
+                    top_checks.push(CheckAttr::parse(input)?.0);
+                    if input.is_empty() {
+                        break Ok(());
+                    } else {
+                        input.parse::<token::Comma>()?;
+                    }
+                })?;
+            }
+        }
+
         let _vis = input.parse::<Visibility>()?;
         input.parse::<Token![struct]>()?;
         let ident = input.parse::<Ident>()?;
         let content;
         let updater = Ident::new(&format!("{}Updater", ident), ident.span());
         let _brace = braced!(content in input);
+
         Ok(OStruct {
             span: input.span(),
             ident,
             updater,
+            top_checks,
             fields: content.parse_terminated(OField::parse)?,
         })
     }
@@ -155,9 +194,9 @@ impl Parse for OField {
     fn parse(input: parse::ParseStream) -> Result<Self> {
         let mut docs = Vec::new();
         let mut skip = false;
-        let mut bounded = false;
         let mut checks = Vec::new();
         let mut enter = false;
+        let mut okay = false;
         for attr in input.call(Attribute::parse_outer)? {
             if attr.path.is_ident("doc") {
                 let Doc(doc) = parse2(attr.tokens)?;
@@ -169,12 +208,12 @@ impl Parse for OField {
                 {
                     match a {
                         Attr::Skip => skip = true,
-                        Attr::Bounded => bounded = true,
                         Attr::Check(upd) => checks.push(*upd),
                         Attr::Literal(_) | Attr::Via(_) => {
                             return Err(Error::new(attr.span(), "unexpected attribute"))
                         }
                         Attr::Enter => enter = true,
+                        Attr::Okay => okay = true,
                     }
                 }
             }
@@ -182,10 +221,10 @@ impl Parse for OField {
 
         let field = Field::parse_named(input)?;
 
-        if !(enter || !checks.is_empty() || skip) {
+        if !(enter || !checks.is_empty() || skip || okay) {
             return Err(Error::new(
                 field.span(),
-                "You need to specify either `enter` or `check` attribute",
+                "You need to specify one of `enter`, `check`, `okay` or `skip` attribute",
             ));
         }
 
@@ -202,7 +241,6 @@ impl Parse for OField {
                 Some(docs.join("\n"))
             },
             ty: field.ty,
-            bounded,
             ident,
             variant,
             skip,

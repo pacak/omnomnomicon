@@ -218,11 +218,11 @@ impl Parse for SimpleEnumField {
                 {
                     match a {
                         Attr::Skip => skip = true,
-                        Attr::Bounded => {}
                         Attr::Literal(lit) => literal = Some(lit),
                         Attr::Via(x) => via = Some(x),
                         Attr::Check(_) => {}
                         Attr::Enter => {}
+                        Attr::Okay => {}
                     }
                 }
             }

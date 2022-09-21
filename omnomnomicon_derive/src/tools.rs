@@ -42,21 +42,37 @@ impl Parse for Doc {
     }
 }
 
+pub struct CheckAttr(pub Expr);
+impl Parse for CheckAttr {
+    fn parse(input: parse::ParseStream) -> Result<Self> {
+        let input_copy = input.fork();
+        let name = input.parse::<Ident>()?;
+        if name == "check" {
+            let content;
+            let _ = parenthesized!(content in input);
+            Ok(CheckAttr(content.parse()?))
+        } else {
+            Err(input_copy.error("Unknown keyword"))
+        }
+    }
+}
+
 pub enum Attr {
     Skip,
-    Bounded,
     Literal(String),
     Via(Ident),
     Check(Box<Expr>),
     Enter,
+    Okay,
 }
 impl Parse for Attr {
     fn parse(input: parse::ParseStream) -> Result<Self> {
+        let input_copy = input.fork();
         let name = input.parse::<Ident>()?;
         if name == "skip" {
             Ok(Attr::Skip)
-        } else if name == "bounded" {
-            Ok(Attr::Bounded)
+        } else if name == "okay" {
+            Ok(Attr::Okay)
         } else if name == "literal" {
             let content;
             let _ = parenthesized!(content in input);
@@ -73,7 +89,7 @@ impl Parse for Attr {
         } else if name == "enter" {
             Ok(Attr::Enter)
         } else {
-            Err(Error::new(input.span(), format!("Unknown kw {}", name)))
+            Err(input_copy.error("Unknown keyword"))
         }
     }
 }
