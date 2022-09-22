@@ -35,7 +35,6 @@ name = "tui"
 members = [
     ".",
     "omnomnomicon_derive",
-    "fuzz",
 ]
 
 
