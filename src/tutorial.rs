@@ -518,8 +518,11 @@ mod test {
 
         assert_eq!(&foo.xs, &[99, 1, 2, 4]);
 
-        apply_change(&mut foo, FooUpdater::Xs(UpdateOrInsert::Ins(0, 100))).unwrap_err();
-        // no change
+        let errors =
+            apply_change(&mut foo, FooUpdater::Xs(UpdateOrInsert::Ins(0, 100))).unwrap_err();
+        // there are errors now
+        assert_eq!(errors, &["Sum must be low, Foo"]);
+        // and no update
         assert_eq!(&foo.xs, &[99, 1, 2, 4]);
     }
 }

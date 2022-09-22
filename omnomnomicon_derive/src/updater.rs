@@ -81,10 +81,13 @@ pub fn derive_updater_impl(omnom: OStruct) -> Result<TokenStream> {
                 }
             }
         });
+        let name = ident.to_string();
 
         quote! { #updater::#variant(f) => {
+            let before = errors.len();
             #(#checks)*
             self.#ident.apply(f, errors);
+            #_crate::suffix_errors(before, errors, #name);
         }}
     });
 
@@ -110,6 +113,7 @@ pub fn derive_updater_impl(omnom: OStruct) -> Result<TokenStream> {
         quote! { self.#ident.check(errors); }
     });
 
+    let name = ident.to_string();
     let r = quote! {
         #updater_decl
 
@@ -119,8 +123,10 @@ pub fn derive_updater_impl(omnom: OStruct) -> Result<TokenStream> {
             #apply_decl
 
             fn check(&self, #[allow(unused)] errors: &mut Vec<String>) {
+                let before = errors.len();
                 #(#top_level_checks)*
                 #(#child_checks)*
+                #_crate::suffix_errors(before, errors, #name);
             }
         }
     };

@@ -194,6 +194,16 @@ impl<T: Parser + Clone + std::fmt::Debug> Updater for Option<T> {
     fn check(&self, _errors: &mut Vec<String>) {}
 }
 
+/// used to add a suffix to every new error
+pub fn suffix_errors(start: usize, errors: &mut [String], name: &str) {
+    if start < errors.len() {
+        for msg in errors[start..].iter_mut() {
+            msg.push_str(", ");
+            msg.push_str(name);
+        }
+    }
+}
+
 impl<T: Updater + std::fmt::Debug, const N: usize> Updater for [T; N] {
     type Updater = (usize, T::Updater);
 
@@ -211,7 +221,9 @@ impl<T: Updater + std::fmt::Debug, const N: usize> Updater for [T; N] {
     }
 
     fn apply(&mut self, updater: Self::Updater, errors: &mut Vec<String>) {
-        self[updater.0].apply(updater.1, errors)
+        let before = errors.len();
+        self[updater.0].apply(updater.1, errors);
+        suffix_errors(before, errors, &format!("[{}]", updater.0));
     }
 
     fn check(&self, _errors: &mut Vec<String>) {}
@@ -222,7 +234,8 @@ impl<T: Updater + std::fmt::Debug, const N: usize> Updater for [T; N] {
 pub enum UpdateOrInsert<K, T> {
     /// Delete item at key `K`
     Del(K),
-    /// Insert an item `T` to key `K`
+    /// Insert an item `T` to key `K`, this assumes previous item does not exist
+    /// in case of vectors
     Ins(K, T),
     /// Update item at key `K` with updater `U`
     Update(K, T),
@@ -254,8 +267,11 @@ impl<T: Updater<Updater = T> + Parser + std::fmt::Debug> Updater for Vec<T> {
     }
 
     fn apply(&mut self, updater: Self::Updater, errors: &mut Vec<String>) {
+        let before = errors.len();
+        let index;
         match updater {
             UpdateOrInsert::Del(ix) => {
+                index = ix;
                 if ix >= self.len() {
                     errors.push(format!("{} is not a valid index in 0..{}", ix, self.len()))
                 } else {
@@ -263,6 +279,7 @@ impl<T: Updater<Updater = T> + Parser + std::fmt::Debug> Updater for Vec<T> {
                 }
             }
             UpdateOrInsert::Ins(ix, t) => {
+                index = ix;
                 if ix > self.len() {
                     errors.push(format!("{} is not a valid index in 0..{}", ix, self.len()))
                 } else {
@@ -270,6 +287,7 @@ impl<T: Updater<Updater = T> + Parser + std::fmt::Debug> Updater for Vec<T> {
                 }
             }
             UpdateOrInsert::Update(ix, u) => {
+                index = ix;
                 if ix > self.len() {
                     errors.push(format!("{} is not a valid index in 0..{}", ix, self.len()))
                 } else {
@@ -277,6 +295,7 @@ impl<T: Updater<Updater = T> + Parser + std::fmt::Debug> Updater for Vec<T> {
                 }
             }
         }
+        suffix_errors(before, errors, &format!("[{:?}]", index));
     }
 
     fn check(&self, _errors: &mut Vec<String>) {}
@@ -299,7 +318,9 @@ where
     }
 
     fn apply(&mut self, (key, updater): Self::Updater, errors: &mut Vec<String>) {
-        self[key].apply(updater, errors)
+        let before = errors.len();
+        self[key].apply(updater, errors);
+        suffix_errors(before, errors, &format!("[{:?}]", key));
     }
 
     fn check(&self, _errors: &mut Vec<String>) {}
