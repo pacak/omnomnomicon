@@ -194,7 +194,7 @@ impl Parse for OField {
         let mut skip = false;
         let mut checks = Vec::new();
         let mut enter = false;
-        let mut okay = false;
+        let mut no_check = false;
         for attr in input.call(Attribute::parse_outer)? {
             if attr.path.is_ident("doc") {
                 let Doc(doc) = parse2(attr.tokens)?;
@@ -211,7 +211,7 @@ impl Parse for OField {
                             return Err(Error::new(attr.span(), "unexpected attribute"))
                         }
                         Attr::Enter => enter = true,
-                        Attr::Okay => okay = true,
+                        Attr::Okay => no_check = true,
                     }
                 }
             }
@@ -219,10 +219,10 @@ impl Parse for OField {
 
         let field = Field::parse_named(input)?;
 
-        if !(enter || !checks.is_empty() || skip || okay) {
+        if !(enter || !checks.is_empty() || skip || no_check) {
             return Err(Error::new(
                 field.span(),
-                "You need to specify one of `enter`, `check`, `okay` or `skip` attribute",
+                "You need to specify one of `enter`, `check`, `no_check` or `skip` attribute",
             ));
         }
 

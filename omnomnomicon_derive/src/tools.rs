@@ -71,7 +71,7 @@ impl Parse for Attr {
         let name = input.parse::<Ident>()?;
         if name == "skip" {
             Ok(Attr::Skip)
-        } else if name == "okay" {
+        } else if name == "no_check" {
             Ok(Attr::Okay)
         } else if name == "literal" {
             let content;

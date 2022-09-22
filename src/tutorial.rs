@@ -542,8 +542,8 @@ fn must_xor(s: &Config2) -> std::result::Result<(), String> {
 pub struct Config2 {
     #[om(enter, check(ten_percent))]
     pub items: Vec<u32>,
-    #[om(okay)]
+    #[om(no_check)]
     pub left: bool,
-    #[om(okay)]
+    #[om(no_check)]
     pub right: bool,
 }
