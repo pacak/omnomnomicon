@@ -135,6 +135,7 @@ pub fn parse_command(input: &str) -> Result<Command> {
                 Key::Baz => 10u32,
             },
             coefficients: [1, 2, 3, 4, 5],
+            mystery: Mystery(10),
         }),
         fmap(Command::Date, tagged("date", NaiveDateTime::parse)),
         fmap(Command::Action, tagged("action", Action::parse)),
@@ -371,6 +372,7 @@ impl Default for Config {
                 Key::Bar => 10u32,
                 Key::Baz => 10u32,
             },
+            mystery: Mystery(10),
         }
     }
 }
@@ -420,6 +422,9 @@ pub struct Config {
     pub coefficients: [u32; 5],
     #[om(enter)]
     pub enum_map: EnumMap<Key, u32>,
+
+    #[om(no_check)]
+    pub mystery: Mystery,
 }
 
 /// Nested
@@ -466,13 +471,30 @@ pub enum Key {
     Baz,
 }
 
+fn even(val: &u32) -> std::result::Result<(), String> {
+    if val % 2 == 0 {
+        Ok(())
+    } else {
+        Err(format!("Value {val} must be even"))
+    }
+}
+
+fn odd(val: &u32) -> std::result::Result<(), String> {
+    if val % 2 == 1 {
+        Ok(())
+    } else {
+        Err(format!("Value {val} must be odd"))
+    }
+}
+
 #[derive(Debug, Copy, Clone, Parser)]
 /// Performs a mystery transformation, should be an odd number
-pub struct Mystery(pub u32);
+pub struct Mystery(#[om(check(odd))] pub u32);
 
 #[derive(Debug, Copy, Clone, Parser)]
 /// Performs a mystery transformation, should be an even number
 pub struct Magical {
+    #[om(check(even))]
     pub value: u32,
 }
 
@@ -506,10 +528,14 @@ mod test {
         pub struct Foo {
             #[om(enter)]
             xs: Vec<u32>,
+
+            #[om(no_check)]
+            my: Mystery,
         }
 
         let mut foo = Foo {
             xs: vec![1, 2, 3, 4],
+            my: Mystery(11),
         };
 
         apply_change(&mut foo, FooUpdater::Xs(UpdateOrInsert::Ins(0, 100))).unwrap();

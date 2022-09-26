@@ -78,6 +78,9 @@ pub trait Parser {
     fn parse(input: &str) -> Result<Self>
     where
         Self: Sized;
+
+    /// Perform a sanity check on a contained value
+    fn sanity_check(&self, _errors: &mut Vec<String>) {}
 }
 
 /// Holds parsing results

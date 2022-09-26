@@ -16,7 +16,7 @@ fn simple_struct_impl(simple: SimpleStruct) -> Result<TokenStream> {
         struct_ident, ty, ..
     } = simple;
     let p = quote! { <#ty as #_crate::Parser>::parse };
-    let p = match simple.field_name {
+    let p = match &simple.field_name {
         Some(var) => quote! { #_crate::fmap(|#var| #struct_ident { #var }, #p) },
         None => quote! { #_crate::fmap(#struct_ident, #p) },
     };
@@ -24,11 +24,27 @@ fn simple_struct_impl(simple: SimpleStruct) -> Result<TokenStream> {
         Some(help) => quote! { #_crate::help(#help, #p) },
         None => p,
     };
+    let field_accessor = &match simple.field_name {
+        Some(name) => quote!(#name),
+        None => quote!(0),
+    };
+    let check = match simple.check {
+        Some(check) => quote! {
+            fn sanity_check(&self, errors: &mut Vec<String>) {
+                let check_fn: &dyn Fn(&#ty) -> std::result::Result<(), String> = &#check;
+                if let Err(msg) = check_fn(&self.#field_accessor) {
+                    errors.push(msg);
+                }
+            }
+        },
+        None => quote!(),
+    };
     let r = quote! {
         impl #_crate::Parser for #struct_ident {
             fn parse(input: &str) -> #_crate::Result<Self> {
                 #p(input)
             }
+            #check
         }
     };
     //println!("{:?}", r);
@@ -102,6 +118,7 @@ pub struct SimpleStruct {
     ty: Type,
     /// help message, if any
     help: Option<String>,
+    check: Option<Expr>,
 }
 
 #[derive(Debug)]
@@ -144,6 +161,8 @@ impl Parse for SimpleStruct {
             if attr.path.is_ident("doc") {
                 let Doc(doc) = parse2(attr.tokens.clone())?;
                 docs.push(doc);
+            } else if attr.path.is_ident("om") {
+                todo!("{:?}", attr.tokens);
             }
         }
         let struct_ident = input.parse()?;
@@ -152,14 +171,52 @@ impl Parse for SimpleStruct {
         let content;
         let ty;
         let field_name;
+        let mut check = None;
         if lookahead.peek(token::Paren) {
             let _paren = parenthesized!(content in input);
+
+            for attr in content.call(Attribute::parse_outer)?.into_iter() {
+                if attr.path.is_ident("om") {
+                    for a in
+                        attr.parse_args_with(Punctuated::<Attr, Token![,]>::parse_terminated)?
+                    {
+                        match a {
+                            Attr::Skip => {}
+                            Attr::Literal(_) => {}
+                            Attr::Via(_) => {}
+                            Attr::Check(expr) => check = Some(*expr),
+                            Attr::Enter => {}
+                            Attr::Okay => {}
+                        }
+                    }
+                }
+            }
+
             let _vis = content.parse::<Visibility>()?;
+
             ty = content.parse()?;
             field_name = None;
             input.parse::<Token![;]>()?;
         } else if lookahead.peek(token::Brace) {
             let _brace = braced!(content in input);
+
+            for attr in content.call(Attribute::parse_outer)?.into_iter() {
+                if attr.path.is_ident("om") {
+                    for a in
+                        attr.parse_args_with(Punctuated::<Attr, Token![,]>::parse_terminated)?
+                    {
+                        match a {
+                            Attr::Skip => {}
+                            Attr::Literal(_) => {}
+                            Attr::Via(_) => {}
+                            Attr::Check(expr) => check = Some(*expr),
+                            Attr::Enter => {}
+                            Attr::Okay => {}
+                        }
+                    }
+                }
+            }
+
             let _vis = content.parse::<Visibility>()?;
             let ident = content.parse()?;
             field_name = Some(ident);
@@ -180,6 +237,7 @@ impl Parse for SimpleStruct {
             } else {
                 Some(docs.join("\n"))
             },
+            check,
         })
     }
 }

@@ -78,9 +78,11 @@ pub fn derive_updater_impl(omnom: OStruct) -> Result<TokenStream> {
                     if let Err(msg) = check_fn(&self.#ident, &f) {
                         errors.push(msg);
                     }
+
                 }
             }
         });
+
         let name = ident.to_string();
 
         quote! { #updater::#variant(f) => {
@@ -112,6 +114,13 @@ pub fn derive_updater_impl(omnom: OStruct) -> Result<TokenStream> {
         let OField { ident, .. } = f;
         quote! { self.#ident.check(errors); }
     });
+    let parser_checks = fields.iter().filter_map(|&f| {
+        if f.skip || f.enter {
+            return None;
+        }
+        let OField { ident, .. } = f;
+        Some(quote! { self.#ident.sanity_check(errors); })
+    });
 
     let name = ident.to_string();
     let r = quote! {
@@ -126,6 +135,7 @@ pub fn derive_updater_impl(omnom: OStruct) -> Result<TokenStream> {
                 let before = errors.len();
                 #(#top_level_checks)*
                 #(#child_checks)*
+                #(#parser_checks)*
                 #_crate::suffix_errors(before, errors, #name);
             }
         }
