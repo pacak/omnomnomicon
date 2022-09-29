@@ -52,8 +52,16 @@ pub mod utils;
 pub use crate::state::*;
 pub mod editor;
 pub mod tests;
-pub use crate::updater::Updater;
-pub use omnomnomicon_derive::{Parser, Updater};
+pub use crate::{
+    combinators::tagged,
+    decorators::{help, hint, label_if_missing, with_hint},
+    parsers::{literal, space},
+    patch::Patch,
+    updater::{suffix_errors, Updater},
+};
+pub use omnomnomicon_derive::{Parser, Patch, Updater};
+
+pub mod patch;
 
 /// A trait to parse an item in a generic way
 ///
