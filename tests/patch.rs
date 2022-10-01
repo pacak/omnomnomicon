@@ -31,3 +31,36 @@ fn simple_updater() {
         "new value can be at most double 10 -> 50, field, Foo"
     );
 }
+
+#[test]
+fn nested_struct() {
+    #[derive(Debug, Clone, Patch, PartialEq)]
+    #[om(no_check)] // <- check will get whole Foo structure as input
+    struct Foo {
+        field1: u64,
+        bar: Bar,
+    }
+
+    #[derive(Debug, Clone, Patch, PartialEq)]
+    #[om(no_check)]
+    struct Bar {
+        field: f64,
+    }
+
+    let mut item = Foo {
+        field1: 12,
+        bar: Bar { field: 3.15 },
+    };
+
+    let (o, patch) = item.enter("iv", "iv bar . field 330").unwrap();
+    assert_eq!(o.input, "");
+    let mut errors = Vec::new();
+    item.apply(patch, &mut errors);
+    assert_eq!(
+        item,
+        Foo {
+            field1: 12,
+            bar: Bar { field: 330.0 }
+        }
+    );
+}

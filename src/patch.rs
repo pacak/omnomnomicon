@@ -20,7 +20,7 @@ use crate::literal;
 use crate::{with_hint, Parser, Result};
 use std::borrow::Cow;
 
-/// `Patch` is best though of associating a value `T` with type `U`, such that T.apply(U) gives `T`
+/// `Patch` is best thought of associating a value `T` with type `U`, such that `T.apply(U)` gives `T`
 /// with a new value.
 ///
 /// For that `Patch` comes with an assocated type [`Update`](Patch::Update) and member [`check`](Patch::check)
@@ -30,7 +30,8 @@ use std::borrow::Cow;
 ///
 /// # Deriving `Patch`
 /// You can derive `Patch` with a derive macro, it supports attributes prefixed with `#[om(xxx)]`
-/// ```rust
+/// ```no_run
+/// # use omnomnomicon::*;
 /// fn item_checker(item: &Item) -> std::result::Result<(), String> {
 ///     todo!()
 /// }
@@ -61,18 +62,38 @@ use std::borrow::Cow;
 /// the second one. When working with primitive fields those match
 ///
 /// # Deriving `Patch`
-/// ```rust
+/// ```no_run
+/// # use omnomnomicon::*;
+/// fn whole(item: &Foo) -> std::result::Result<(), String> {
+///     todo!()
+/// }
+///
+/// fn field_check(item: &u64) -> std::result::Result<(), String> {
+///     todo!()
+/// }
+///
+/// fn diff_check(item: &u32, update: &u32) -> std::result::Result<(), String> {
+///     todo!()
+/// }
+///
+///
 /// #[derive(Debug, Clone, Patch)]
-/// #[om(check(XXX))] // <- check will get whole Foo structure as input
+/// #[om(check(whole))] // <- check will get whole Foo structure as input
 /// struct Foo {
-///     #[om(check(xxxx))] // <- check will get
+///     #[om(check(field_check))] // <- check will get only field1 as input
 ///     pub field1: u64,
-///     #[om(check(xxxx))]
-///     pub field2: u32
-///     #[om(dcheck(xxxx))]
-///     pub field3: u32
-///     #[om(enter)]
+///     #[om(check(field_check))]
+///     pub field2: u64,
+///     #[om(dcheck(diff_check))]
+///     pub field3: u32,
+///     #[om(no_check)]
 ///     pub bar: Bar,
+/// }
+///
+/// #[derive(Debug, Clone, Patch)]
+/// #[om(no_check)]
+/// pub struct Bar {
+///     pub field: f64,
 /// }
 /// ```
 pub trait Patch {

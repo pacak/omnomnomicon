@@ -320,7 +320,7 @@ impl ToTokens for Top {
                     let input = ::omnomnomicon::space(input)?.0.input;
                     let mut err = ::omnomnomicon::Terminate::default();
 
-                    #(#field_attempts),*
+                    #(#field_attempts)*
 
                     Err(err)
                 }
@@ -360,6 +360,92 @@ mod tests {
     use pretty_assertions::assert_eq;
     use quote::{quote, ToTokens};
     use syn::parse_quote;
+
+    #[test]
+    fn nested_struct() {
+        let top: Top = parse_quote! {
+            #[om(no_check)] // <- check will get whole Foo structure as input
+            struct Foo {
+                pub field1: u64,
+                pub bar: Bar,
+            }
+        };
+        let expected = quote! {
+            #[derive(Debug, Clone)]
+            enum FooUpdater {
+                Field1(<u64 as ::omnomnomicon::Patch>::Update),
+                Bar(<Bar as ::omnomnomicon::Patch>::Update),
+            }
+
+            impl ::omnomnomicon::Patch for Foo {
+                type Update = FooUpdater;
+                fn enter<'a>(
+                    &self,
+                    entry: &'static str,
+                    input: &'a str,
+                ) -> ::omnomnomicon::Result<'a, Self::Update> {
+                    let input = ::omnomnomicon::literal(entry)(input)?.0.input;
+                    let input = ::omnomnomicon::space(input)?.0.input;
+                    let mut err = ::omnomnomicon::Terminate::default();
+                    let mut p = ::omnomnomicon::tagged(
+                        "field1",
+                        ::omnomnomicon::label_if_missing("field1", |i| {
+                            <u64 as ::omnomnomicon::Patch>::enter(&self.field1, ".", i)
+                        })
+                    );
+
+                    match p(input) {
+                        Err(e) => err += e,
+                        Ok((out, ok)) => return Ok((out, FooUpdater::Field1(ok))),
+                    };
+
+                    let mut p = ::omnomnomicon::tagged(
+                        "bar",
+                        ::omnomnomicon::label_if_missing("bar", |i| {
+                            <Bar as ::omnomnomicon::Patch>::enter(&self.bar, ".", i)
+                        })
+                    );
+                    match p(input) {
+                        Err(e) => err += e,
+                        Ok((out, ok)) => return Ok((out, FooUpdater::Bar(ok))),
+                    };
+                    Err(err)
+                }
+                fn check(&self, errors: &mut Vec<String>) {
+                    let before = errors.len();
+                    {
+                        let field_before = errors.len();
+                        <u64 as ::omnomnomicon::Patch>::check(&self.field1, errors);
+                        ::omnomnomicon::suffix_errors(field_before, errors, "field1");
+                    }
+                    {
+                        let field_before = errors.len();
+                        <Bar as ::omnomnomicon::Patch>::check(&self.bar, errors);
+                        ::omnomnomicon::suffix_errors(field_before, errors, "bar");
+                    }
+                    ::omnomnomicon::suffix_errors(before, errors, "Foo");
+                }
+                fn apply(&mut self, update: Self::Update, errors: &mut Vec<String>) {
+                    let before = errors.len();
+                    match update {
+                        FooUpdater::Field1(val) => {
+                            let field_before = errors.len();
+                            <u64 as ::omnomnomicon::Patch>::apply(&mut self.field1, val, errors);
+                            ::omnomnomicon::suffix_errors(field_before, errors, "field1");
+                        }
+                        FooUpdater::Bar(val) => {
+                            let field_before = errors.len();
+                            <Bar as ::omnomnomicon::Patch>::apply(&mut self.bar, val, errors);
+                            ::omnomnomicon::suffix_errors(field_before, errors, "bar");
+                        }
+                    }
+                    ::omnomnomicon::suffix_errors(before, errors, "Foo");
+                }
+            }
+        };
+
+        assert_eq!(top.to_token_stream().to_string(), expected.to_string());
+    }
 
     #[test]
     fn simple_struct() {
