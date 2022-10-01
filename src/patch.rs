@@ -49,13 +49,13 @@ use std::borrow::Cow;
 /// }
 /// ```
 ///
-/// By default `Patch` wants you to specify checks on all the fields, with `nocheck` (or `skip`) annotation in
+/// By default `Patch` wants you to specify checks on all the fields, with `no_check` (or `skip`) annotation in
 /// (2) or (3) you can derive `Patch` with no checks on a field, alternatively you can place it top
 /// level - (1) to disable this requirement for all the fields.
 ///
 /// Following attribute names are available:
 /// `skip` - ignore this field when generating patcher, can only be used on fields directly
-/// `nocheck` - allow to skip check requirements on a field/structure.
+/// `no_check` - allow to skip check requirements on a field/structure.
 /// `check`, `dcheck` - absolute and incremental checks - on a field or structure
 /// `dcheck` gets a reference to current value as a first argument and a reference to updater as
 /// the second one. When working with primitive fields those match

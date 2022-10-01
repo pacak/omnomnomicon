@@ -21,7 +21,7 @@ struct Field {
 }
 
 impl Field {
-    pub fn parse(input: ParseStream, named: bool, mut nocheck: bool) -> syn::Result<Self> {
+    pub fn parse(input: ParseStream, named: bool, mut no_check: bool) -> syn::Result<Self> {
         let mut docs = Vec::new();
         let mut checks = Vec::new();
         let mut dchecks = Vec::new();
@@ -44,8 +44,8 @@ impl Field {
                     } else if keyword == "dcheck" {
                         parenthesized!(content in input);
                         dchecks.push(content.parse::<Expr>()?);
-                    } else if keyword == "nocheck" {
-                        nocheck = true;
+                    } else if keyword == "no_check" {
+                        no_check = true;
                     } else if keyword == "skip" {
                         skip = true;
                     } else {
@@ -72,9 +72,9 @@ impl Field {
         };
         input.parse::<token::Colon>()?;
         let ty = input.parse::<Type>()?;
-        if !skip && !nocheck && checks.is_empty() && dchecks.is_empty() {
+        if !skip && !no_check && checks.is_empty() && dchecks.is_empty() {
             return Err(input_copy.error(
-                "You need to specify at least one check, 'skip' or use 'nocheck' attribute",
+                "You need to specify at least one check, 'skip' or use 'no_check' attribute",
             ));
         }
         Ok(Field {
@@ -142,7 +142,7 @@ impl Top {
         let update = Ident::new(&format!("{}Updater", ident), ident.span());
         let content;
         let fields: Punctuated<Field, token::Comma>;
-        let mut nocheck = false;
+        let mut no_check = false;
         let mut checks = Vec::new();
         let mut dchecks = Vec::new();
         for attr in attrs {
@@ -160,8 +160,8 @@ impl Top {
                     } else if keyword == "dcheck" {
                         parenthesized!(content in input);
                         dchecks.push(content.parse::<Expr>()?);
-                    } else if keyword == "nocheck" {
-                        nocheck = true;
+                    } else if keyword == "no_check" {
+                        no_check = true;
                     } else {
                         return Err(input_copy.error("Unexpected attribute"));
                     }
@@ -175,14 +175,14 @@ impl Top {
 
         if input.peek(token::Brace) {
             braced!(content in input);
-            if nocheck {
+            if no_check {
                 fields = content.parse_terminated(|i| Field::parse(i, true, true))?;
             } else {
                 fields = content.parse_terminated(|i| Field::parse(i, true, false))?;
             }
         } else if input.peek(token::Paren) {
             bracketed!(content in input);
-            if nocheck {
+            if no_check {
                 fields = content.parse_terminated(|i| Field::parse(i, false, true))?;
             } else {
                 fields = content.parse_terminated(|i| Field::parse(i, false, false))?;
