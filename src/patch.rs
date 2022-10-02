@@ -17,6 +17,9 @@
 
 #[cfg(doc)]
 use crate::literal;
+use crate::Parser;
+use crate::*;
+use std::borrow::Cow;
 //use crate::{with_hint, Parser, Result};
 
 /// `Patch` is best thought of associating a value `T` with type `U`, such that `T.apply(U)` gives `T`
@@ -121,7 +124,8 @@ pub trait Patch {
 
     /// Run validation check, collect the results
     ///
-    /// Does nothing for instances
+    /// Does nothing for most of the instances provided by the library
+    /// You can add them to your types by deriving [`Patch`] with [`update_parser_with!`].
     fn check(&self, _errors: &mut Vec<String>) {}
 }
 
@@ -214,4 +218,141 @@ fn update_parser_with_works() {
             errors.push("value must increase".to_owned());
         }
     }}
+}
+
+impl<T: Parser + Clone + std::fmt::Debug> Patch for Option<T> {
+    type Update = Option<T>;
+
+    fn enter<'a>(&self, _: &'static str, input: &'a str) -> crate::Result<'a, Self::Update> {
+        use crate::*;
+        let enabled = tagged("some", fmap(Some, T::parse));
+        let disabled = tag(None, "none");
+
+        with_hint(
+            || Some(std::borrow::Cow::from(format!("cur: {:?}", self))),
+            or(enabled, disabled),
+        )(input)
+    }
+
+    fn apply(&mut self, updater: Self::Update, _errors: &mut Vec<String>) {
+        *self = updater;
+    }
+}
+
+impl<T: Patch + std::fmt::Debug, const N: usize> Patch for [T; N] {
+    type Update = (usize, T::Update);
+
+    fn enter<'a>(&self, entry: &'static str, input: &'a str) -> crate::Result<'a, Self::Update> {
+        let label_ix = || Some(Cow::from(format!("arr index, 0..{}", N - 1)));
+        let parse_ix = with_hint(label_ix, number::<usize>);
+        let (output, _) = literal(entry)(input)?;
+        let key_input = output.input;
+        let (output, key) = output.bind_space(true, parse_ix)?;
+        if key >= N {
+            return Terminate::fail(key_input, format!("Index too big, valid range 0..{}", N));
+        }
+        let (output, val) = output.bind_space(true, |i| self[key].enter(".", i))?;
+        Ok((output, (key, val)))
+    }
+
+    fn apply(&mut self, updater: Self::Update, errors: &mut Vec<String>) {
+        let before = errors.len();
+        self[updater.0].apply(updater.1, errors);
+        suffix_errors(before, errors, &format!("[{}]", updater.0));
+    }
+}
+
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
+/// Updater for for a map like structure
+pub enum UpdateOrInsert<K, T> {
+    /// Delete item at key `K`
+    Del(K),
+    /// Insert an item `T` to key `K`, this assumes previous item does not exist
+    /// in case of vectors
+    Ins(K, T),
+    /// Update item at key `K` with updater `U`
+    Update(K, T),
+}
+
+impl<T: Patch<Update = T> + Parser + std::fmt::Debug> Patch for Vec<T> {
+    type Update = UpdateOrInsert<usize, T>;
+
+    fn enter<'a>(&self, entry: &'static str, input: &'a str) -> Result<'a, Self::Update> {
+        let label_ix = || Some(Cow::from(format!("vec index, 0..{}", self.len())));
+        let parse_ix = || with_hint(label_ix, number::<usize>);
+
+        let (output, _) = literal(entry)(input)?;
+        let (output, ix) = output.bind_space(true, parse_ix())?;
+        let ops = choice((literal("ins"), literal("del"), literal("upd")));
+        let (output, op) = output.bind_space(true, ops)?;
+        match op {
+            "ins" => {
+                let (output, val) = output.bind_space(true, label("value to insert", T::parse))?;
+                Ok((output, UpdateOrInsert::Ins(ix, val)))
+            }
+            "del" => Ok((output, UpdateOrInsert::Del(ix))),
+            "upd" => {
+                let (output, val) = output.bind_space(true, label("value to replace", T::parse))?;
+                Ok((output, UpdateOrInsert::Update(ix, val)))
+            }
+            _ => Terminate::fail(output.input, "unreachable"),
+        }
+    }
+
+    fn apply(&mut self, updater: Self::Update, errors: &mut Vec<String>) {
+        let before = errors.len();
+        let index;
+        match updater {
+            UpdateOrInsert::Del(ix) => {
+                index = ix;
+                if ix >= self.len() {
+                    errors.push(format!("{} is not a valid index in 0..{}", ix, self.len()))
+                } else {
+                    self.remove(ix);
+                }
+            }
+            UpdateOrInsert::Ins(ix, t) => {
+                index = ix;
+                if ix > self.len() {
+                    errors.push(format!("{} is not a valid index in 0..{}", ix, self.len()))
+                } else {
+                    self.insert(ix, t);
+                }
+            }
+            UpdateOrInsert::Update(ix, u) => {
+                index = ix;
+                if ix > self.len() {
+                    errors.push(format!("{} is not a valid index in 0..{}", ix, self.len()))
+                } else {
+                    self[ix].apply(u, errors)
+                }
+            }
+        }
+        suffix_errors(before, errors, &format!("[{:?}]", index));
+    }
+}
+
+#[cfg(feature = "enum-map")]
+impl<K, V> Patch for enum_map::EnumMap<K, V>
+where
+    K: enum_map::EnumArray<V> + Copy + std::fmt::Debug,
+    V: Patch,
+{
+    type Update = (K, <V as Patch>::Update);
+
+    fn enter<'a>(&self, entry: &'static str, input: &'a str) -> Result<'a, Self::Update> {
+        let table = self.iter().map(|(k, _)| (k, Cow::from(format!("{:?}", k))));
+        let (output, _) = literal(entry)(input)?;
+        let (output, key) = output.bind_space(true, lookup_key(table, 100))?;
+        let (output, val) = output.bind_space(true, |i| self[key].enter(".", i))?;
+        Ok((output, (key, val)))
+    }
+
+    fn apply(&mut self, (key, updater): Self::Update, errors: &mut Vec<String>) {
+        let before = errors.len();
+        self[key].apply(updater, errors);
+        suffix_errors(before, errors, &format!("[{:?}]", key));
+    }
+
+    fn check(&self, _errors: &mut Vec<String>) {}
 }

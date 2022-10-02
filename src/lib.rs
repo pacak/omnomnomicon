@@ -53,9 +53,9 @@ pub use crate::state::*;
 pub mod editor;
 pub mod tests;
 pub use crate::{
-    combinators::tagged,
-    decorators::{help, hint, label_if_missing, with_hint},
-    parsers::{literal, space},
+    combinators::{choice, fmap, or, tagged},
+    decorators::{help, hint, label, label_if_missing, with_hint},
+    parsers::{literal, lookup_key, number, space, tag},
     patch::Patch,
     updater::{suffix_errors, Updater},
 };
@@ -169,7 +169,6 @@ nonzero!(i128, std::num::NonZeroI128);
 /// `"true"` for `true`, and `"false"` for `false`
 impl Parser for bool {
     fn parse(input: &str) -> Result<Self> {
-        use crate::prelude::{or, tag};
         or(tag(true, "true"), tag(false, "false"))(input)
     }
 }
