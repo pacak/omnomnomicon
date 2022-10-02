@@ -17,8 +17,7 @@
 
 #[cfg(doc)]
 use crate::literal;
-use crate::{with_hint, Parser, Result};
-use std::borrow::Cow;
+//use crate::{with_hint, Parser, Result};
 
 /// `Patch` is best thought of associating a value `T` with type `U`, such that `T.apply(U)` gives `T`
 /// with a new value.
@@ -111,7 +110,7 @@ pub trait Patch {
     ///
     /// When making an entry point for you manual implementation you should parse
     /// `entry` as a [`literal`] then parse the values themselves
-    fn enter<'a>(&self, entry: &'static str, input: &'a str) -> Result<'a, Self::Update>;
+    fn enter<'a>(&self, entry: &'static str, input: &'a str) -> crate::Result<'a, Self::Update>;
 
     /// Apply the update, collect the errors into the vector.
     ///
@@ -127,14 +126,24 @@ pub trait Patch {
 }
 
 /// Implement [`Patch`] for a structure that implements [`Parser`]
+///
+/// Can take multiple types at once. As with any traits you can only define them
+/// for types declared in your crate.
+/// ```rust
+/// # use omnomnomicon::*;
+/// #[derive(Debug, Clone, Parser)]
+/// struct Foo(u32);
+/// update_as_parser!(Foo);
+/// ```
+#[macro_export]
 macro_rules! update_as_parser {
     ($($ty:ty),*) => {$(
         impl Patch for $ty {
             type Update = $ty;
-            fn enter<'a>(&self, _: &'static str, input: &'a str)-> Result<'a, Self::Update> {
-                with_hint(
-                    || Some(Cow::from(format!("cur: {:?}", self))),
-                    Parser::parse,
+            fn enter<'a>(&self, _: &'static str, input: &'a str)-> ::omnomnomicon::Result<'a, Self::Update> {
+                ::omnomnomicon::with_hint(
+                    || Some(::std::borrow::Cow::from(format!("cur: {:?}", self))),
+                    ::omnomnomicon::Parser::parse,
                 )(input)
             }
             fn apply(&mut self, update: Self::Update, _errors: &mut Vec<String>)  {
@@ -143,32 +152,66 @@ macro_rules! update_as_parser {
         }
     )*}
 }
+pub use update_as_parser;
 
 update_as_parser!(u8, u16, u32, u64, i8, i16, i32, i64, usize, isize, f32, f64);
 
+mod foo {
+    use omnomnomicon::*;
+    #[derive(Debug, Clone, Parser)]
+    struct Foo(u32);
+    update_parser_with! { Foo, self, update, errors, {
+        if self.0 > update.0 {
+            errors.push("value must increase".to_owned());
+        }
+    }}
+}
+
 /// A variant of [`update_as_parser`] that helps to define a custom check
+///
+/// As with any traits you can only define them for types declared in your crate
+/// ```rust
+/// # use omnomnomicon::{Parser, update_parser_with};
+/// #[derive(Debug, Clone, Parser)]
+/// struct Foo(u32);
+/// update_parser_with! { Foo, self, update, errors, {
+///     if self.0 > update.0 {
+///         errors.push("value must increase".to_owned());
+///     }
+/// }}
+/// ```
+#[macro_export]
 macro_rules! update_parser_with {
     ($ty:ty, $self:ident, $update:ident, $errors:ident, $body:expr) => {
 
-        impl Patch for $ty {
+        impl ::omnomnomicon::Patch for $ty
+            where $ty: ::omnomnomicon::Parser,
+{
             type Update = $ty;
-            fn enter<'a>(&self, _: &'static str, input: &'a str)-> Result<'a, Self::Update> {
-                with_hint(
-                    || Some(Cow::from(format!("cur: {:?}", self))),
-                    Parser::parse,
+            fn enter<'a>(&self, _: &'static str, input: &'a str)-> ::omnomnomicon::Result<'a, Self::Update> {
+                ::omnomnomicon::with_hint(
+                    || Some(::std::borrow::Cow::from(format!("cur: {:?}", self))),
+                    ::omnomnomicon::Parser::parse,
                 )(input)
             }
             fn apply(&mut $self, $update: Self::Update, $errors: &mut Vec<String>)  {{
                 $body
+                *$self = $update;
             }}
         }
     }
 }
 
-#[derive(Debug, Clone, Parser)]
-struct Foo(u32);
-update_parser_with! { Foo, self, update, errors, {
-    if self.0 > update.0 {
-        errors.push("value must increase".to_owned());
-    }
-}}
+pub use update_parser_with;
+
+#[test]
+fn update_parser_with_works() {
+    use crate::Parser;
+    #[derive(Debug, Clone, Parser)]
+    struct Foo(u32);
+    update_parser_with! { Foo, self, update, errors, {
+        if self.0 > update.0 {
+            errors.push("value must increase".to_owned());
+        }
+    }}
+}
