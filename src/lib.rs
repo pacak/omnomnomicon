@@ -47,19 +47,17 @@ pub mod prelude;
 pub mod state;
 #[cfg(feature = "tutorial")]
 pub mod tutorial;
-pub mod updater;
 pub mod utils;
 pub use crate::state::*;
 pub mod editor;
 pub mod tests;
 pub use crate::{
-    combinators::{choice, fmap, or, tagged},
+    combinators::{choice, fmap, or, tagged, words},
     decorators::{help, hint, label, label_if_missing, with_hint},
     parsers::{literal, lookup_key, number, space, tag},
-    patch::Patch,
-    updater::{suffix_errors, Updater},
+    patch::{suffix_errors, updater_for, Checker, UpdateOrInsert, Updater},
 };
-pub use omnomnomicon_derive::{Parser, Patch, Updater};
+pub use omnomnomicon_derive::{Parser, Updater};
 
 pub mod patch;
 

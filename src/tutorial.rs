@@ -83,7 +83,7 @@
 //! [`place_cmd`] - Entry point
 //!
 
-use crate::prelude::*;
+use crate::{prelude::*, updater_for};
 use chrono::NaiveDateTime;
 use enum_map::{enum_map, Enum, EnumMap};
 

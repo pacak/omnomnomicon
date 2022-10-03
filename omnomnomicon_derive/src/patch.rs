@@ -15,8 +15,8 @@ struct Field {
     name: Option<Ident>,
     ty: Type,
     help: Option<String>,
-    checks: Vec<Expr>,
-    dchecks: Vec<Expr>,
+    checks: Vec<(bool, Expr)>,
+    dchecks: Vec<(bool, Expr)>,
     skip: bool,
 }
 
@@ -26,6 +26,7 @@ impl Field {
         let mut checks = Vec::new();
         let mut dchecks = Vec::new();
         let mut skip = false;
+        let mut is_nested = false;
         for attr in input.call(Attribute::parse_outer)? {
             if attr.path.is_ident("doc") {
                 let Doc(doc) = parse2(attr.tokens)?;
@@ -40,14 +41,18 @@ impl Field {
                     let content;
                     if keyword == "check" {
                         parenthesized!(content in input);
-                        checks.push(content.parse::<Expr>()?);
+                        checks.push((is_nested, content.parse::<Expr>()?));
+                        is_nested = false;
                     } else if keyword == "dcheck" {
                         parenthesized!(content in input);
-                        dchecks.push(content.parse::<Expr>()?);
+                        dchecks.push((is_nested, content.parse::<Expr>()?));
+                        is_nested = false;
                     } else if keyword == "no_check" {
                         no_check = true;
                     } else if keyword == "skip" {
                         skip = true;
+                    } else if keyword == "enter" {
+                        is_nested = true;
                     } else {
                         return Err(input_copy.error("Unexpected attribute"));
                     }
@@ -215,7 +220,7 @@ impl ToTokens for Top {
 
         let updater_fields = fields.iter().enumerate().map(|(ix, f @ Field { ty, .. })| {
             let variant = f.variant(ix);
-            quote!(#variant(<#ty as ::omnomnomicon::Patch>::Update))
+            quote!(#variant(<#ty as ::omnomnomicon::Updater>::Updater))
         });
 
         let outer_checks = checks.iter().map(|check| {
@@ -237,17 +242,21 @@ impl ToTokens for Top {
         let field_checks = fields.iter().enumerate().map(|(ix, f @ Field { ty, .. })| {
             let accessor = f.accessor(ix);
             let name = accessor.to_string();
-            let checks = f.checks.iter().map(|check| {
-                quote! {
-                    if let Err(err) = (#check)(&self.#accessor) {
-                        errors.push(err);
+            let checks = f.checks.iter().map(|(is_nested, check)| {
+                if *is_nested {
+                    quote! { <#ty as ::omnomnomicon::Checker>::check_elts(&self.#accessor, &#check, errors); }
+                } else {
+                    quote! {
+                        if let Err(err) = (#check)(&self.#accessor) {
+                            errors.push(err);
+                        }
                     }
                 }
             });
             quote!({
                 let field_before = errors.len();
                 #(#checks)*
-                <#ty as ::omnomnomicon::Patch>::check(&self.#accessor, errors);
+                <#ty as ::omnomnomicon::Updater>::check(&self.#accessor, errors);
                 ::omnomnomicon::suffix_errors(field_before, errors, #name);
             })
         });
@@ -260,7 +269,7 @@ impl ToTokens for Top {
 
             let parser = quote! {
                 let mut p = ::omnomnomicon::tagged(#fname, ::omnomnomicon::label_if_missing(#fname, |i| {
-                    <#ty as ::omnomnomicon::Patch>::enter(&self.#accessor, ".", i)
+                    <#ty as ::omnomnomicon::Updater>::enter(&self.#accessor, ".", i)
                 }));
             };
 
@@ -285,10 +294,16 @@ impl ToTokens for Top {
             let accessor = f.accessor(ix);
             let variant = f.variant(ix);
             let name = accessor.to_string();
-            let dchecks = f.dchecks.iter().map(|dcheck| {
-                quote! {
-                    if let Err(err) = (#dcheck)(&self.#accessor, &val) {
-                        errors.push(err);
+            let dchecks = f.dchecks.iter().map(|(is_nested, dcheck)| {
+                if *is_nested {
+                    quote! {
+                        <#ty as ::omnomnomicon::Checker>::dcheck_elts(&self.#accessor, &val, &#dcheck, errors);
+                    }
+                } else {
+                    quote! {
+                        if let Err(err) = (#dcheck)(&self.#accessor, &val) {
+                            errors.push(err);
+                        }
                     }
                 }
             });
@@ -296,7 +311,7 @@ impl ToTokens for Top {
                 #update::#variant(val) => {
                     let field_before = errors.len();
                     #(#dchecks)*
-                    <#ty as ::omnomnomicon::Patch>::apply(&mut self.#accessor, val, errors);
+                    <#ty as ::omnomnomicon::Updater>::apply(&mut self.#accessor, val, errors);
                     ::omnomnomicon::suffix_errors(field_before, errors, #name);
                 }
             }
@@ -308,14 +323,14 @@ impl ToTokens for Top {
             #vis enum #update {
                 #(#updater_fields,)*
             }
-            impl ::omnomnomicon::Patch for #ident {
-                type Update = #update;
+            impl ::omnomnomicon::Updater for #ident {
+                type Updater = #update;
 
                 fn enter<'a>(
                     &self,
                     entry: &'static str,
                     input: &'a str,
-                ) -> ::omnomnomicon::Result<'a, Self::Update> {
+                ) -> ::omnomnomicon::Result<'a, Self::Updater> {
                     let input = ::omnomnomicon::literal(entry)(input)?.0.input;
                     let input = ::omnomnomicon::space(input)?.0.input;
                     let mut err = ::omnomnomicon::Terminate::default();
@@ -332,7 +347,7 @@ impl ToTokens for Top {
                     ::omnomnomicon::suffix_errors(before, errors, #name);
                 }
 
-                fn apply(&mut self, update: Self::Update, errors: &mut Vec<String>) {
+                fn apply(&mut self, update: Self::Updater, errors: &mut Vec<String>) {
                     let before = errors.len();
                     #(#outer_dchecks)*
                     match update {
@@ -342,7 +357,7 @@ impl ToTokens for Top {
                 }
             }
         }
-        .to_tokens(tokens)
+        .to_tokens(tokens);
     }
 }
 
@@ -373,24 +388,24 @@ mod tests {
         let expected = quote! {
             #[derive(Debug, Clone)]
             enum FooUpdater {
-                Field1(<u64 as ::omnomnomicon::Patch>::Update),
-                Bar(<Bar as ::omnomnomicon::Patch>::Update),
+                Field1(<u64 as ::omnomnomicon::Updater>::Updater),
+                Bar(<Bar as ::omnomnomicon::Updater>::Updater),
             }
 
-            impl ::omnomnomicon::Patch for Foo {
-                type Update = FooUpdater;
+            impl ::omnomnomicon::Updater for Foo {
+                type Updater = FooUpdater;
                 fn enter<'a>(
                     &self,
                     entry: &'static str,
                     input: &'a str,
-                ) -> ::omnomnomicon::Result<'a, Self::Update> {
+                ) -> ::omnomnomicon::Result<'a, Self::Updater> {
                     let input = ::omnomnomicon::literal(entry)(input)?.0.input;
                     let input = ::omnomnomicon::space(input)?.0.input;
                     let mut err = ::omnomnomicon::Terminate::default();
                     let mut p = ::omnomnomicon::tagged(
                         "field1",
                         ::omnomnomicon::label_if_missing("field1", |i| {
-                            <u64 as ::omnomnomicon::Patch>::enter(&self.field1, ".", i)
+                            <u64 as ::omnomnomicon::Updater>::enter(&self.field1, ".", i)
                         })
                     );
 
@@ -402,7 +417,7 @@ mod tests {
                     let mut p = ::omnomnomicon::tagged(
                         "bar",
                         ::omnomnomicon::label_if_missing("bar", |i| {
-                            <Bar as ::omnomnomicon::Patch>::enter(&self.bar, ".", i)
+                            <Bar as ::omnomnomicon::Updater>::enter(&self.bar, ".", i)
                         })
                     );
                     match p(input) {
@@ -415,27 +430,27 @@ mod tests {
                     let before = errors.len();
                     {
                         let field_before = errors.len();
-                        <u64 as ::omnomnomicon::Patch>::check(&self.field1, errors);
+                        <u64 as ::omnomnomicon::Updater>::check(&self.field1, errors);
                         ::omnomnomicon::suffix_errors(field_before, errors, "field1");
                     }
                     {
                         let field_before = errors.len();
-                        <Bar as ::omnomnomicon::Patch>::check(&self.bar, errors);
+                        <Bar as ::omnomnomicon::Updater>::check(&self.bar, errors);
                         ::omnomnomicon::suffix_errors(field_before, errors, "bar");
                     }
                     ::omnomnomicon::suffix_errors(before, errors, "Foo");
                 }
-                fn apply(&mut self, update: Self::Update, errors: &mut Vec<String>) {
+                fn apply(&mut self, update: Self::Updater, errors: &mut Vec<String>) {
                     let before = errors.len();
                     match update {
                         FooUpdater::Field1(val) => {
                             let field_before = errors.len();
-                            <u64 as ::omnomnomicon::Patch>::apply(&mut self.field1, val, errors);
+                            <u64 as ::omnomnomicon::Updater>::apply(&mut self.field1, val, errors);
                             ::omnomnomicon::suffix_errors(field_before, errors, "field1");
                         }
                         FooUpdater::Bar(val) => {
                             let field_before = errors.len();
-                            <Bar as ::omnomnomicon::Patch>::apply(&mut self.bar, val, errors);
+                            <Bar as ::omnomnomicon::Updater>::apply(&mut self.bar, val, errors);
                             ::omnomnomicon::suffix_errors(field_before, errors, "bar");
                         }
                     }
@@ -465,21 +480,21 @@ mod tests {
         let expected = quote! {
             #[derive(Debug, Clone)]
             pub(crate) enum FooUpdater {
-                Field(<u32 as ::omnomnomicon::Patch>::Update),
+                Field(<u32 as ::omnomnomicon::Updater>::Updater),
             }
 
-            impl ::omnomnomicon::Patch for Foo {
-                type Update = FooUpdater;
+            impl ::omnomnomicon::Updater for Foo {
+                type Updater = FooUpdater;
                 fn enter<'a>(
                     &self,
                     entry: &'static str,
                     input: &'a str,
-                ) -> ::omnomnomicon::Result<'a, Self::Update> {
+                ) -> ::omnomnomicon::Result<'a, Self::Updater> {
                     let input = ::omnomnomicon::literal(entry)(input)?.0.input;
                     let input = ::omnomnomicon::space(input)?.0.input;
                     let mut err = ::omnomnomicon::Terminate::default();
                     let mut p = ::omnomnomicon::tagged("field", ::omnomnomicon::label_if_missing("field", |i| {
-                        <u32 as ::omnomnomicon::Patch>::enter(&self.field, ".", i)
+                        <u32 as ::omnomnomicon::Updater>::enter(&self.field, ".", i)
                     }));
                     let mut p = ::omnomnomicon::help("inner comment", p);
                     match p(input) {
@@ -499,13 +514,13 @@ mod tests {
                         if let Err(err) = (sanity)(&self.field) {
                             errors.push(err);
                         }
-                        <u32 as ::omnomnomicon::Patch>::check(&self.field, errors);
+                        <u32 as ::omnomnomicon::Updater>::check(&self.field, errors);
                         ::omnomnomicon::suffix_errors(field_before, errors, "field");
                     }
                     ::omnomnomicon::suffix_errors(before, errors, "Foo");
                 }
 
-                fn apply(&mut self, update: Self::Update, errors: &mut Vec<String>) {
+                fn apply(&mut self, update: Self::Updater, errors: &mut Vec<String>) {
                     let before = errors.len();
                     if let Err(err) = (outerd)(&self, &update) {
                         errors.push(err);
@@ -516,7 +531,7 @@ mod tests {
                             if let Err(err) = (isanity)(&self.field, &val) {
                                  errors.push(err);
                             }
-                            <u32 as ::omnomnomicon::Patch>::apply(&mut self.field, val, errors);
+                            <u32 as ::omnomnomicon::Updater>::apply(&mut self.field, val, errors);
                             ::omnomnomicon::suffix_errors(field_before, errors, "field");
                         }
                     }
@@ -524,6 +539,85 @@ mod tests {
                 }
             }
         };
+
+        assert_eq!(top.to_token_stream().to_string(), expected.to_string());
+    }
+
+    #[test]
+    fn nested_check() {
+        let top: Top = parse_quote! {
+            /// outer comment
+            pub(crate) struct Foo {
+                /// inner comment
+                #[om(enter, check(sanity), enter, dcheck(isanity))]
+                pub field: Vec<u32>,
+            }
+        };
+        let expected = quote! {
+
+        #[derive(Debug, Clone)]
+        pub(crate) enum FooUpdater {
+            Field(<Vec<u32> as ::omnomnomicon::Updater>::Updater),
+        }
+
+        impl ::omnomnomicon::Updater for Foo {
+            type Updater = FooUpdater;
+
+            fn enter<'a>(
+                &self,
+                entry: &'static str,
+                input: &'a str,
+            ) -> ::omnomnomicon::Result<'a, Self::Updater> {
+                let input = ::omnomnomicon::literal(entry)(input)?.0.input;
+                let input = ::omnomnomicon::space(input)?.0.input;
+                let mut err = ::omnomnomicon::Terminate::default();
+                let mut p = ::omnomnomicon::tagged(
+                    "field",
+                    ::omnomnomicon::label_if_missing("field", |i| {
+                        <Vec<u32> as ::omnomnomicon::Updater>::enter(&self.field, ".", i)
+                    })
+                );
+
+                let mut p = ::omnomnomicon::help("inner comment", p);
+                match p(input) {
+                    Err(e) => err += e,
+                    Ok((out, ok)) => return Ok((out, FooUpdater::Field(ok))),
+                };
+                Err(err)
+            }
+
+            fn check(&self, errors: &mut Vec<String>) {
+                let before = errors.len();
+                {
+                    let field_before = errors.len();
+                    <Vec<u32> as ::omnomnomicon::Checker>::check_elts(&self.field, &sanity, errors);
+                    <Vec<u32> as ::omnomnomicon::Updater>::check(&self.field, errors);
+                    ::omnomnomicon::suffix_errors(field_before, errors, "field");
+                }
+
+                ::omnomnomicon::suffix_errors(before, errors, "Foo");
+            }
+
+            fn apply(&mut self, update: Self::Updater, errors: &mut Vec<String>) {
+                let before = errors.len();
+                match update {
+                    FooUpdater::Field(val) => {
+                        let field_before = errors.len();
+                        <Vec<u32> as ::omnomnomicon::Checker>::dcheck_elts(
+                            &self.field,
+                            &val,
+                            &isanity,
+                            errors
+                        );
+                        <Vec<u32> as ::omnomnomicon::Updater>::apply(&mut self.field, val, errors);
+                        ::omnomnomicon::suffix_errors(field_before, errors, "field");
+                    }
+                }
+                ::omnomnomicon::suffix_errors(before, errors, "Foo");
+            }
+        }
+
+            };
 
         assert_eq!(top.to_token_stream().to_string(), expected.to_string());
     }
