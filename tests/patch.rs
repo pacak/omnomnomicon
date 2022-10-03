@@ -158,7 +158,7 @@ fn nested_with_parser_and_closure() {
 
 #[test]
 fn diff_works() {
-    fn ten_percent(orig: u32, new: u32) -> std::result::Result<(), String> {
+    fn ten_percent(_orig: u32, _new: u32) -> std::result::Result<(), String> {
         Ok(())
     }
 
@@ -176,7 +176,7 @@ fn diff_works() {
 
 #[test]
 fn diff_works2() {
-    fn ten_percent(orig: &u32, new: &u32) -> std::result::Result<(), String> {
+    fn ten_percent(_orig: u32, _new: u32) -> std::result::Result<(), String> {
         Ok(())
     }
 
@@ -187,7 +187,7 @@ fn diff_works2() {
     #[derive(Debug, Clone, Updater)]
     pub struct Config {
         /// Price...
-        #[om(dcheck(|cur, new| ten_percent(cur, new)))]
+        #[om(dcheck(|cur, new| ten_percent(*cur, *new)))]
         pub price: u32,
     }
 }

@@ -21,7 +21,7 @@
 //! - [`frontend_tui`][crate::frontend::tui]
 //!
 //! ## Library support
-//! - `enum-map` - [`Updater`][crate::updater::Updater] for `EnumMap`
+//! - `enum-map` - [`Updater`][crate::Updater] for `EnumMap`
 //! - `chrono` - [`Parser`] for various types
 //!
 //! ## Misc
@@ -68,7 +68,7 @@ pub mod patch;
 /// input.
 ///
 /// Any item implementing `Parser` and [`Debug`][std::fmt::Debug] will be supported by
-/// [`Updater`][updater::Updater], the interactive data updater, see [updater][mod@updater].
+/// [`Updater`][Updater], the interactive data updater, see [patch][mod@patch].
 ///
 /// # Examples
 /// ```rust
