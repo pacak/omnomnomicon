@@ -57,6 +57,7 @@ use crate::*;
 /// `check`, `dcheck` - absolute and incremental checks - on a field or structure
 /// `dcheck` gets a reference to current value as a first argument and a reference to updater as
 /// the second one. When working with primitive fields those match
+/// `enter` - modifies `check` or `dcheck` that follows immediatly after to use [`Checker`] trait
 ///
 /// # Deriving `Updater`
 /// ```no_run
@@ -85,6 +86,8 @@ use crate::*;
 ///     pub field3: u32,
 ///     #[om(no_check)]
 ///     pub bar: Bar,
+///     #[om(enter, dcheck(diff_check))] // <- will check update for individual elements
+///     pub items: Vec<u32>
 /// }
 ///
 /// #[derive(Debug, Clone, Updater)]
@@ -357,4 +360,95 @@ where
     }
 
     fn check(&self, _errors: &mut Vec<String>) {}
+}
+
+/// Append a `name` to each `error` message at and after `start` index.
+///
+/// Used to generate path to problematic fields by `Updater` derive macro.
+pub fn suffix_errors(start: usize, errors: &mut [String], name: &str) {
+    if start < errors.len() {
+        for msg in errors[start..].iter_mut() {
+            msg.push_str(", ");
+            msg.push_str(name);
+        }
+    }
+}
+
+/// Updater trait for a collection, mostly to be able to update single items inside collections
+/// (vector, etc)
+pub trait Checker: Updater {
+    /// Item type
+    type Item;
+
+    /// Perform incremental check on a single element
+    fn dcheck_elts<C>(&self, updater: &Self::Updater, check: &C, errors: &mut Vec<String>)
+    where
+        C: Fn(&Self::Item, &Self::Item) -> std::result::Result<(), String>;
+
+    /// Perform sanity check for all the elements
+    fn check_elts<C>(&self, check: &C, errors: &mut Vec<String>)
+    where
+        C: Fn(&Self::Item) -> std::result::Result<(), String>;
+}
+
+impl<T> Checker for Vec<T>
+where
+    T: std::fmt::Debug + Parser + Updater<Updater = T>,
+{
+    type Item = T;
+
+    fn dcheck_elts<C>(&self, updater: &Self::Updater, check: &C, errors: &mut Vec<String>)
+    where
+        C: Fn(&Self::Item, &Self::Item) -> std::result::Result<(), String>,
+    {
+        if let UpdateOrInsert::Updater(ix, new) = updater {
+            if *ix >= self.len() {
+                errors.push(format!(
+                    "{} is not a valid index for vector of size {}",
+                    ix,
+                    self.len()
+                ))
+            }
+            if let Err(err) = check(&self[*ix], new) {
+                let before = errors.len();
+                errors.push(err);
+                suffix_errors(before, errors, &format!("index {ix}"))
+            }
+        }
+    }
+
+    fn check_elts<C>(&self, check: &C, errors: &mut Vec<String>)
+    where
+        C: Fn(&Self::Item) -> std::result::Result<(), String>,
+    {
+        for elt in self {
+            if let Err(err) = check(elt) {
+                errors.push(err)
+            }
+        }
+    }
+}
+
+/// Entry point for interactive structure updated
+///
+/// ```ignore
+/// #[derive(Updater)]
+/// struct Banana {
+///     shape: u32,
+///     color: f64
+/// }
+/// let mut banana = Banana { shape: 12, color: 3.1415 };
+/// let p = updater_for(&banana, "banana");
+/// let r = parse_result(&p, "banana . shape 16")?;
+/// banana.apply(r);
+/// // Banana { shape: 16, color: 3.1415 }
+/// ```
+pub fn updater_for<'a, T>(
+    item: &'a T,
+    label: &'static str,
+) -> impl FnMut(&str) -> Result<T::Updater> + 'a
+where
+    T: Updater,
+{
+    move |input| Updater::enter(item, label, input)
 }
