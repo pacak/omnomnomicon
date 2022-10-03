@@ -452,3 +452,23 @@ where
 {
     move |input| Updater::enter(item, label, input)
 }
+
+/// Apply diff to an item or return all encountered errors
+pub fn apply_change<T>(
+    item: &mut T,
+    diff: <T as Updater>::Updater,
+) -> std::result::Result<(), Vec<String>>
+where
+    T: Updater + Clone,
+{
+    let mut copy = item.clone();
+    let mut errors = Vec::new();
+    copy.apply(diff, &mut errors);
+    copy.check(&mut errors);
+    if errors.is_empty() {
+        std::mem::swap(item, &mut copy);
+        Ok(())
+    } else {
+        Err(errors)
+    }
+}

@@ -134,10 +134,13 @@ fn nested_with_parser_and_closure() {
         /// inner comment
         #[om(enter, dcheck(|cur, upd| ten_percent(cur.0, upd.0)))]
         pub field: Vec<Price>,
+        #[om(dcheck(|cur, upd| ten_percent(cur.0, upd.0)))]
+        pub field2: Price,
     }
 
     let mut item = Foo {
         field: vec![Price(1000)],
+        field2: Price(1000),
     };
 
     let (o, patch) = item.enter("iv", "iv field . 0 upd 99").unwrap();
@@ -151,4 +154,40 @@ fn nested_with_parser_and_closure() {
         "increment should be at most 10%, it is now 1000 -> 99, index 0, field, Foo"
     );
     assert_eq!([Price(99)].as_slice(), &item.field);
+}
+
+#[test]
+fn diff_works() {
+    fn ten_percent(orig: u32, new: u32) -> std::result::Result<(), String> {
+        Ok(())
+    }
+
+    #[derive(Debug, Clone, Parser)]
+    pub struct Price(u32);
+    update_as_parser!(Price);
+
+    #[derive(Debug, Clone, Updater)]
+    pub struct Config {
+        /// Price...
+        #[om(dcheck(|cur, new| ten_percent(cur.0, new.0)))]
+        pub price: Price,
+    }
+}
+
+#[test]
+fn diff_works2() {
+    fn ten_percent(orig: &u32, new: &u32) -> std::result::Result<(), String> {
+        Ok(())
+    }
+
+    #[derive(Debug, Clone, Parser)]
+    pub struct Price(u32);
+    update_as_parser!(Price);
+
+    #[derive(Debug, Clone, Updater)]
+    pub struct Config {
+        /// Price...
+        #[om(dcheck(|cur, new| ten_percent(cur, new)))]
+        pub price: u32,
+    }
 }

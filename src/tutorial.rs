@@ -403,24 +403,26 @@ fn ten_percent(orig: &u32, new: &u32) -> std::result::Result<(), String> {
 #[derive(Debug, Clone, Updater)]
 pub struct Config {
     /// Price...
-    #[om(check(|cur, new| ten_percent(&cur.0, &new.0)))]
+    #[om(dcheck(|cur, new| ten_percent(&cur.0, &new.0)))]
     pub price: Price,
-    #[om(check(percent(15.0)))]
+
+    #[om(dcheck(percent(15.0)))]
     pub target: u32,
 
-    #[om(enter, check(ten_percent))]
+    #[om(enter, dcheck(ten_percent))]
     pub items: Vec<u32>,
 
-    #[om(enter)]
+    #[om(no_check)]
     pub limits: Limits,
 
     #[om(skip)]
     pub boosting: Option<u32>,
 
     /// A set of magical coefficients
-    #[om(enter)]
+    #[om(skip)]
     pub coefficients: [u32; 5],
-    #[om(enter)]
+
+    #[om(no_check)]
     pub enum_map: EnumMap<Key, u32>,
 
     #[om(no_check)]
@@ -437,13 +439,13 @@ pub struct Limits {
     /// Low limit for something important
     ///
     /// Software will try to keep a value of something important above that limit
-    #[om(check(ten_percent))]
+    #[om(dcheck(ten_percent))]
     pub low: u32,
 
     /// High limit for something important
     ///
     /// Software will try to keep a value of something important below that limit
-    #[om(check(ten_percent))]
+    #[om(dcheck(ten_percent))]
     pub high: u32,
 }
 
@@ -498,9 +500,12 @@ pub struct Magical {
     pub value: u32,
 }
 
+crate::update_as_parser!(Magical, Mystery, Price);
+
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::{apply_change, UpdateOrInsert};
 
     #[test]
     fn test_complete_info() {
@@ -526,7 +531,7 @@ mod test {
         #[derive(Debug, Clone, Updater)]
         #[om(check(low_sum))]
         pub struct Foo {
-            #[om(enter)]
+            #[om(no_check)]
             xs: Vec<u32>,
 
             #[om(no_check)]
@@ -540,7 +545,7 @@ mod test {
 
         apply_change(&mut foo, FooUpdater::Xs(UpdateOrInsert::Ins(0, 100))).unwrap();
         apply_change(&mut foo, FooUpdater::Xs(UpdateOrInsert::Del(3))).unwrap();
-        apply_change(&mut foo, FooUpdater::Xs(UpdateOrInsert::Update(0, 99))).unwrap();
+        apply_change(&mut foo, FooUpdater::Xs(UpdateOrInsert::Updater(0, 99))).unwrap();
 
         assert_eq!(&foo.xs, &[99, 1, 2, 4]);
 
@@ -569,7 +574,7 @@ fn must_xor(s: &Config2) -> std::result::Result<(), String> {
 #[derive(Debug, Clone, Updater)]
 #[om(check(must_xor))]
 pub struct Config2 {
-    #[om(enter, check(ten_percent))]
+    #[om(enter, dcheck(ten_percent))]
     pub items: Vec<u32>,
     #[om(no_check)]
     pub left: bool,
