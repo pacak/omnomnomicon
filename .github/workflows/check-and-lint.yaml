@@ -1,0 +1,39 @@
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+jobs:
+  linux:
+    name: Tests on Linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: rustfmt clippy
+          targets: armv7-unknown-linux-gnueabihf
+
+      - name: Build allt the things
+        run: cargo build --tests
+
+      - name: Run unit tests
+        run: cargo test --all-features --workspace --doc
+
+      - name: Clippy
+        run: cargo clippy
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      - name: cargo docs
+        run: cargo doc --all --no-deps --all-features
+        env:
+          RUSTDOCFLAGS: '-D warnings'
+
+

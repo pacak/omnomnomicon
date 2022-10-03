@@ -21,7 +21,7 @@
 //! - [`frontend_tui`][crate::frontend::tui]
 //!
 //! ## Library support
-//! - `enum-map` - [`Updater`][crate::updater::Updater] for `EnumMap`
+//! - `enum-map` - [`Updater`][crate::Updater] for `EnumMap`
 //! - `chrono` - [`Parser`] for various types
 //!
 //! ## Misc
@@ -47,13 +47,19 @@ pub mod prelude;
 pub mod state;
 #[cfg(feature = "tutorial")]
 pub mod tutorial;
-pub mod updater;
 pub mod utils;
 pub use crate::state::*;
 pub mod editor;
 pub mod tests;
-pub use crate::updater::Updater;
+pub use crate::{
+    combinators::{choice, fmap, or, tagged, words},
+    decorators::{help, hint, label, label_if_missing, with_hint},
+    parsers::{literal, lookup_key, number, space, tag},
+    patch::{apply_change, suffix_errors, updater_for, Checker, UpdateOrInsert, Updater},
+};
 pub use omnomnomicon_derive::{Parser, Updater};
+
+pub mod patch;
 
 /// A trait to parse an item in a generic way
 ///
@@ -62,7 +68,7 @@ pub use omnomnomicon_derive::{Parser, Updater};
 /// input.
 ///
 /// Any item implementing `Parser` and [`Debug`][std::fmt::Debug] will be supported by
-/// [`Updater`][updater::Updater], the interactive data updater, see [updater][mod@updater].
+/// [`Updater`][Updater], the interactive data updater, see [patch][mod@patch].
 ///
 /// # Examples
 /// ```rust
@@ -161,7 +167,6 @@ nonzero!(i128, std::num::NonZeroI128);
 /// `"true"` for `true`, and `"false"` for `false`
 impl Parser for bool {
     fn parse(input: &str) -> Result<Self> {
-        use crate::prelude::{or, tag};
         or(tag(true, "true"), tag(false, "false"))(input)
     }
 }

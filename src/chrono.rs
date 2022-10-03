@@ -206,7 +206,6 @@ fn test_naivedate() {
 /// Month and Day are two digits.
 impl Parser for ::chrono::naive::NaiveDateTime {
     fn parse(input: &str) -> Result<Self> {
-        use crate::combinators::{fmap, words};
         use ::chrono::naive::{NaiveDate, NaiveTime};
 
         fmap(
