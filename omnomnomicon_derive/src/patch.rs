@@ -225,7 +225,8 @@ impl ToTokens for Top {
 
         let outer_checks = checks.iter().map(|check| {
             quote! {
-                if let Err(err) = (#check)(&self) {
+                let check_fn: &dyn Fn(&#ident) -> std::result::Result<(), String> = &#check;
+                if let Err(err) = check_fn(&self) {
                     errors.push(err);
                 }
             }
@@ -233,7 +234,8 @@ impl ToTokens for Top {
 
         let outer_dchecks = dchecks.iter().map(|check| {
             quote! {
-                if let Err(err) = (#check)(&self, &update) {
+                let check_fn: &dyn Fn(&#ident, &#update) -> std::result::Result<(), String> = &#check;
+                if let Err(err) = check_fn(&self, &update) {
                     errors.push(err);
                 }
             }
@@ -301,7 +303,8 @@ impl ToTokens for Top {
                     }
                 } else {
                     quote! {
-                        if let Err(err) = (#dcheck)(&self.#accessor, &val) {
+                        let check_fn: &dyn Fn(&#ty, &#ty) -> std::result::Result<(), String> = &#dcheck;
+                        if let Err(err) = check_fn(&self.#accessor, &val) {
                             errors.push(err);
                         }
                     }
