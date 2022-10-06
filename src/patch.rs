@@ -140,7 +140,7 @@ pub trait Updater {
 #[macro_export]
 macro_rules! update_as_parser {
     ($($ty:ty),*) => {$(
-        impl Updater for $ty {
+        impl ::omnomnomicon::Updater for $ty {
             type Updater = $ty;
             fn enter<'a>(&self, _: &'static str, input: &'a str)-> ::omnomnomicon::Result<'a, Self::Updater> {
                 ::omnomnomicon::with_hint(
@@ -237,7 +237,7 @@ impl<T: Parser + Clone + std::fmt::Debug> Updater for Option<T> {
     }
 }
 
-impl<T: Updater + std::fmt::Debug, const N: usize> Updater for [T; N] {
+impl<T: Updater, const N: usize> Updater for [T; N] {
     type Updater = (usize, T::Updater);
 
     fn enter<'a>(&self, entry: &'static str, input: &'a str) -> crate::Result<'a, Self::Updater> {
@@ -272,7 +272,7 @@ pub enum UpdateOrInsert<K, T> {
     Updater(K, T),
 }
 
-impl<T: Updater<Updater = T> + Parser + std::fmt::Debug> Updater for Vec<T> {
+impl<T: Updater<Updater = T> + Parser> Updater for Vec<T> {
     type Updater = crate::UpdateOrInsert<usize, T>;
 
     fn enter<'a>(&self, entry: &'static str, input: &'a str) -> Result<'a, Self::Updater> {

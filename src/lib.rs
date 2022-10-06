@@ -67,7 +67,7 @@ pub mod patch;
 /// without any external state, over full item domain and without any additional checks or prompts.
 /// input.
 ///
-/// Any item implementing `Parser` and [`Debug`][std::fmt::Debug] will be supported by
+/// Any item implementing [`Parser`] and [`Debug`][std::fmt::Debug] will be supported by
 /// [`Updater`][Updater], the interactive data updater, see [patch][mod@patch].
 ///
 /// # Examples
