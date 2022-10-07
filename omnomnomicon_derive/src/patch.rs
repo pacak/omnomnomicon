@@ -249,7 +249,8 @@ impl ToTokens for Top {
                     quote! { <#ty as ::omnomnomicon::Checker>::check_elts(&self.#accessor, &#check, errors); }
                 } else {
                     quote! {
-                        if let Err(err) = (#check)(&self.#accessor) {
+                        let check_fn: &dyn Fn(&#ty) -> std::result::Result<(), String> = &#check;
+                        if let Err(err) = check_fn(&self.#accessor) {
                             errors.push(err);
                         }
                     }
