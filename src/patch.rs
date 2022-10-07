@@ -391,6 +391,35 @@ pub trait Checker: Updater {
         C: Fn(&Self::Item) -> std::result::Result<(), String>;
 }
 
+impl<T> Checker for Option<T>
+where
+    T: Updater<Updater = T> + Parser + Clone + std::fmt::Debug,
+{
+    type Item = T;
+
+    fn dcheck_elts<C>(&self, updater: &Self::Updater, check: &C, errors: &mut Vec<String>)
+    where
+        C: Fn(&Self::Item, &Self::Item) -> std::result::Result<(), String>,
+    {
+        if let (Some(current), Some(new)) = (self, updater) {
+            if let Err(error) = check(current, new) {
+                errors.push(error);
+            }
+        }
+    }
+
+    fn check_elts<C>(&self, check: &C, errors: &mut Vec<String>)
+    where
+        C: Fn(&Self::Item) -> std::result::Result<(), String>,
+    {
+        if let Some(val) = self {
+            if let Err(error) = check(val) {
+                errors.push(error);
+            }
+        }
+    }
+}
+
 impl<T> Checker for Vec<T>
 where
     T: std::fmt::Debug + Parser + Updater<Updater = T>,
