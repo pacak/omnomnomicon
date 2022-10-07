@@ -140,7 +140,7 @@ pub trait Updater {
 #[macro_export]
 macro_rules! update_as_parser {
     ($($ty:ty),*) => {$(
-        impl Updater for $ty {
+        impl ::omnomnomicon::Updater for $ty {
             type Updater = $ty;
             fn enter<'a>(&self, _: &'static str, input: &'a str)-> ::omnomnomicon::Result<'a, Self::Updater> {
                 ::omnomnomicon::with_hint(
