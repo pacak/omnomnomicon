@@ -195,6 +195,7 @@ impl Parse for SimpleStruct {
             let _vis = content.parse::<Visibility>()?;
 
             ty = content.parse()?;
+            content.parse::<Option<Token![,]>>()?;
             field_name = None;
             input.parse::<Token![;]>()?;
         } else if lookahead.peek(token::Brace) {

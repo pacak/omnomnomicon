@@ -606,6 +606,15 @@ mod test {
             baz: Baz,
         }
     }
+
+    #[test]
+    fn trailing_comma_in_a_tuple_struct() {
+        #[derive(Debug, Clone, Copy, Parser)]
+        struct Qux(
+            // The following field has a trailing comma at the end of the line
+            #[om(check(|_| Ok(())))] i64,
+        );
+    }
 }
 
 fn must_xor(s: &Config2) -> std::result::Result<(), String> {
