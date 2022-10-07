@@ -306,7 +306,7 @@ fn test_pwords_hints() {
     assert_eq!(comps("b "), ["a", "c"]);
     assert_eq!(comps("c "), ["a", "b"]);
 
-    assert_eq!(parse_hints(&mut p, "a b c").is_err(), true);
+    assert!(parse_hints(&mut p, "a b c").is_err());
 }
 
 derive_pwords!(P1 R1, P2 R2, P3 R3, P4 R4, P5 R5, P6 R6, P7 R7, P8 R8, P9 R9, P10 R10);
