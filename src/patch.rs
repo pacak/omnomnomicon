@@ -422,7 +422,7 @@ where
 
 impl<T> Checker for Vec<T>
 where
-    T: std::fmt::Debug + Parser + Updater<Updater = T>,
+    T: Parser + Updater<Updater = T>,
 {
     type Item = T;
 
@@ -453,6 +453,36 @@ where
         for elt in self {
             if let Err(err) = check(elt) {
                 errors.push(err)
+            }
+        }
+    }
+}
+
+#[cfg(feature = "enum-map")]
+impl<K, V> Checker for enum_map::EnumMap<K, V>
+where
+    K: enum_map::EnumArray<V> + Copy + std::fmt::Debug,
+    V: Updater<Updater = V>,
+{
+    type Item = <V as Updater>::Updater;
+
+    fn dcheck_elts<C>(&self, (k, new): &Self::Updater, check: &C, errors: &mut Vec<String>)
+    where
+        C: Fn(&Self::Item, &Self::Item) -> std::result::Result<(), String>,
+    {
+        let current = &self[*k];
+        if let Err(error) = check(current, new) {
+            errors.push(error);
+        }
+    }
+
+    fn check_elts<C>(&self, check: &C, errors: &mut Vec<String>)
+    where
+        C: Fn(&Self::Item) -> std::result::Result<(), String>,
+    {
+        for val in self.values() {
+            if let Err(error) = check(val) {
+                errors.push(error);
             }
         }
     }
