@@ -505,7 +505,7 @@ crate::update_as_parser!(Magical, Mystery, Price);
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{apply_change, UpdateOrInsert};
+    use crate::{apply_change, update_as_parser, UpdateOrInsert};
 
     #[test]
     fn test_complete_info() {
@@ -555,6 +555,65 @@ mod test {
         assert_eq!(errors, &["Sum must be low, Foo"]);
         // and no update
         assert_eq!(&foo.xs, &[99, 1, 2, 4]);
+    }
+
+    #[test]
+    fn sanity_check_vs_check() {
+        type Result<T> = std::result::Result<T, String>;
+
+        fn positive_i64(x: &i64) -> Result<()> {
+            if *x <= 0 {
+                return Err("This must be positive".into());
+            }
+            Ok(())
+        }
+
+        fn even_i64(x: &i64) -> Result<()> {
+            if x % 2 == 1 {
+                return Err("This must be even".into());
+            }
+            Ok(())
+        }
+
+        #[derive(Debug, Clone, Copy, Parser)]
+        struct Bar(#[om(check(even_i64))] i64);
+
+        impl Bar {
+            fn positive(&self) -> Result<()> {
+                positive_i64(&self.0)
+            }
+        }
+
+        #[derive(Debug, Clone, Copy, Updater)]
+        struct Baz {
+            #[om(check(even_i64))]
+            inner: i64,
+        }
+
+        impl Baz {
+            fn positive(&self) -> Result<()> {
+                positive_i64(&self.inner)
+            }
+        }
+
+        update_as_parser!(Bar);
+
+        #[derive(Debug, Clone, Updater)]
+        struct Foo {
+            #[om(check(Bar::positive))]
+            bar: Bar,
+            #[om(check(Baz::positive))]
+            baz: Baz,
+        }
+    }
+
+    #[test]
+    fn trailing_comma_in_a_tuple_struct() {
+        #[derive(Debug, Clone, Copy, Parser)]
+        struct Qux(
+            // The following field has a trailing comma at the end of the line
+            #[om(check(|_| Ok(())))] i64,
+        );
     }
 }
 

@@ -77,9 +77,9 @@ impl Field {
         };
         input.parse::<token::Colon>()?;
         let ty = input.parse::<Type>()?;
-        if !skip && !no_check && checks.is_empty() && dchecks.is_empty() {
+        if !skip && !no_check && !is_nested && checks.is_empty() && dchecks.is_empty() {
             return Err(input_copy.error(
-                "You need to specify at least one check, 'skip' or use 'no_check' attribute",
+                "You need to specify at least one check, 'enter', 'skip' or use 'no_check' attribute",
             ));
         }
         Ok(Field {
@@ -249,7 +249,8 @@ impl ToTokens for Top {
                     quote! { <#ty as ::omnomnomicon::Checker>::check_elts(&self.#accessor, &#check, errors); }
                 } else {
                     quote! {
-                        if let Err(err) = (#check)(&self.#accessor) {
+                        let check_fn: &dyn Fn(&#ty) -> std::result::Result<(), String> = &#check;
+                        if let Err(err) = check_fn(&self.#accessor) {
                             errors.push(err);
                         }
                     }

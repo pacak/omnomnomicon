@@ -251,3 +251,5 @@ impl Parser for String {
         Ok(result)
     }
 }
+
+update_as_parser!(String);
