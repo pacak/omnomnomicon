@@ -505,7 +505,7 @@ crate::update_as_parser!(Magical, Mystery, Price);
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{apply_change, update_as_parser, UpdateOrInsert};
+    use crate::{apply_change, update_parser_with, UpdateOrInsert};
 
     #[test]
     fn test_complete_info() {
@@ -569,14 +569,14 @@ mod test {
         }
 
         fn even_i64(x: &i64) -> Result<()> {
-            if x % 2 == 1 {
+            if (x % 2).abs() == 1 {
                 return Err("This must be even".into());
             }
             Ok(())
         }
 
         #[derive(Debug, Clone, Copy, Parser)]
-        struct Bar(#[om(check(even_i64))] i64);
+        struct Bar(i64);
 
         impl Bar {
             fn positive(&self) -> Result<()> {
@@ -596,7 +596,7 @@ mod test {
             }
         }
 
-        update_as_parser!(Bar);
+        update_parser_with!(Bar, self, update, errors, {}, { self.positive() });
 
         #[derive(Debug, Clone, Updater)]
         struct Foo {
@@ -605,6 +605,30 @@ mod test {
             #[om(check(Baz::positive))]
             baz: Baz,
         }
+
+        let mut errors = Vec::new();
+
+        let bar = Bar(-1);
+        bar.check(&mut errors);
+        assert_eq!(&errors, &["This must be positive, Bar"]);
+        errors.clear();
+
+        let baz = Baz { inner: -1 };
+        baz.check(&mut errors);
+        assert_eq!(&errors, &["This must be even, inner, Baz"]);
+        errors.clear();
+
+        let foo = Foo { bar, baz };
+        foo.check(&mut errors);
+        assert_eq!(
+            &errors,
+            &[
+                "This must be positive, bar, Foo",
+                "This must be positive, Bar, bar, Foo",
+                "This must be positive, baz, Foo",
+                "This must be even, inner, Baz, baz, Foo",
+            ]
+        );
     }
 
     #[test]

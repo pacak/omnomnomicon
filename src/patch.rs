@@ -162,11 +162,16 @@ mod foo {
     use omnomnomicon::*;
     #[derive(Debug, Clone, Parser)]
     struct Foo(u32);
-    update_parser_with! { Foo, self, update, errors, {
-        if self.0 > update.0 {
-            errors.push("value must increase".to_owned());
-        }
-    }}
+    update_parser_with! { Foo, self, update, errors,
+        {
+            if self.0 > update.0 {
+                Err("value must increase".to_owned())
+            } else {
+                Ok(())
+            }
+        },
+        {}
+    }
 }
 
 /// A variant of [`update_as_parser`] that helps to define a custom check
@@ -178,17 +183,24 @@ mod foo {
 /// struct Foo(u32);
 /// update_parser_with! { Foo, self, update, errors, {
 ///     if self.0 > update.0 {
-///         errors.push("value must increase".to_owned());
+///         Err("value must increase".to_owned())
+///     } else {
+///         Ok(())
 ///     }
 /// }}
 /// ```
 #[macro_export]
 macro_rules! update_parser_with {
-    ($ty:ty, $self:ident, $update:ident, $errors:ident, $body:expr) => {
+    ($ty:ty, $self:ident, $update:ident, $errors:ident) => {
+        $crate::update_parser_with!($ty, $self, $update, $errors, {}, {})
+    };
+    ($ty:ty, $self:ident, $update:ident, $errors:ident, $upd_body:expr) => {
+        $crate::update_parser_with!($ty, $self, $update, $errors, $upd_body, {})
+    };
+    ($ty:ty, $self:ident, $update:ident, $errors:ident, $upd_body:tt, $check_body:tt) => {
 
         impl ::omnomnomicon::Updater for $ty
-            where $ty: ::omnomnomicon::Parser,
-{
+            where $ty: ::omnomnomicon::Parser, {
             type Updater = $ty;
             fn enter<'a>(&self, _: &'static str, input: &'a str)-> ::omnomnomicon::Result<'a, Self::Updater> {
                 ::omnomnomicon::with_hint(
@@ -196,12 +208,35 @@ macro_rules! update_parser_with {
                     ::omnomnomicon::Parser::parse,
                 )(input)
             }
+
+            #[allow(unused_variables)]
             fn apply(&mut $self, $update: Self::Updater, $errors: &mut Vec<String>)  {{
-                $body
+                $crate::update_parser_with!(@apply ($ty) $self $update $errors $upd_body);
                 *$self = $update;
             }}
+
+            #[allow(unused_variables)]
+            fn check(& $self, $errors: &mut Vec<String>) {
+                $crate::update_parser_with!(@check ($ty) $self $errors $check_body);
+            }
         }
-    }
+    };
+    (@apply ($ty:ty) $self:ident $update:ident $errors:ident {}) => { };
+    (@apply ($ty:ty) $self:ident $update:ident $errors:ident $body:expr) => {
+        if let Err(msg) = $body {
+            let before = $errors.len();
+            $errors.push(msg);
+            ::omnomnomicon::suffix_errors(before, $errors, stringify!($ty))
+        }
+    };
+    (@check ($ty:ty) $self:ident $errors:ident {}) => { };
+    (@check ($ty:ty) $self:ident $errors:ident $body:expr) => {
+        if let Err(msg) = $body {
+            let before = $errors.len();
+            $errors.push(msg);
+            ::omnomnomicon::suffix_errors(before, $errors, stringify!($ty))
+        }
+    };
 }
 
 pub use update_parser_with;
@@ -211,11 +246,15 @@ fn update_parser_with_works() {
     use crate::Parser;
     #[derive(Debug, Clone, Parser)]
     struct Foo(u32);
-    update_parser_with! { Foo, self, update, errors, {
-        if self.0 > update.0 {
-            errors.push("value must increase".to_owned());
+    update_parser_with! { Foo, self, update, errors,
+        {
+            if self.0 > update.0 {
+                Err("value must increase".to_owned())
+            } else {
+                Ok(())
+            }
         }
-    }}
+    }
 }
 
 impl<T: Parser + Clone + std::fmt::Debug> Updater for Option<T> {
