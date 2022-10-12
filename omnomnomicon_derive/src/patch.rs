@@ -304,7 +304,7 @@ impl ToTokens for Top {
                     }
                 } else {
                     quote! {
-                        let check_fn: &dyn Fn(&#ty, &#ty) -> std::result::Result<(), String> = &#dcheck;
+                        let check_fn: &dyn Fn(&#ty, &<#ty as ::omnomnomicon::Updater>::Updater) -> std::result::Result<(), String> = &#dcheck;
                         if let Err(err) = check_fn(&self.#accessor, &val) {
                             errors.push(err);
                         }
