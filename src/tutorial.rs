@@ -639,6 +639,27 @@ mod test {
             #[om(check(|_| Ok(())))] i64,
         );
     }
+
+    #[cfg(feature = "enum-map")]
+    #[test]
+    fn enum_map_dcheck() {
+        #[derive(Debug, Updater)]
+        struct Foo {
+            #[om(dcheck(check_bar))]
+            bar: EnumMap<bool, f64>,
+        }
+
+        fn check_bar(
+            current: &EnumMap<bool, f64>,
+            (key, new): &(bool, f64),
+        ) -> std::result::Result<(), String> {
+            let current = &current[*key];
+            if *current * 2.0 != *new {
+                return Err("This can only be doubled".into());
+            }
+            Ok(())
+        }
+    }
 }
 
 fn must_xor(s: &Config2) -> std::result::Result<(), String> {
