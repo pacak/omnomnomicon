@@ -497,6 +497,43 @@ where
     }
 }
 
+impl<const N: usize, T> Checker for [T; N]
+where
+    T: Parser + Updater<Updater = T>,
+{
+    type Item = T;
+
+    fn dcheck_elts<C>(&self, updater: &Self::Updater, check: &C, errors: &mut Vec<String>)
+    where
+        C: Fn(&Self::Item, &Self::Item) -> std::result::Result<(), String>,
+    {
+        let (ix, new) = updater;
+        if *ix >= self.len() {
+            errors.push(format!(
+                "{} is not a valid index for vector of size {}",
+                ix,
+                self.len()
+            ))
+        }
+        if let Err(err) = check(&self[*ix], new) {
+            let before = errors.len();
+            errors.push(err);
+            suffix_errors(before, errors, &format!("index {ix}"))
+        }
+    }
+
+    fn check_elts<C>(&self, check: &C, errors: &mut Vec<String>)
+    where
+        C: Fn(&Self::Item) -> std::result::Result<(), String>,
+    {
+        for elt in self {
+            if let Err(err) = check(elt) {
+                errors.push(err)
+            }
+        }
+    }
+}
+
 #[cfg(feature = "enum-map")]
 impl<K, V> Checker for enum_map::EnumMap<K, V>
 where
